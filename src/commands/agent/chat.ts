@@ -95,56 +95,60 @@ class TerminalUI {
     const B = chalk.hex('#5b8eff');
     const W = chalk.hex('#c8c8ff');
     const termWidth = process.stdout.columns || 80;
+    const termHeight = process.stdout.rows || 24;
     const msgWidth = Math.max(termWidth - 20, 30);
 
-    process.stdout.write('\x1b[2J\x1b[H');
+    const lines: string[] = [];
 
-    console.log('');
-    console.log(`  ${P('▗▄▄▄▄▄▄▄▄▄▄▄▄▄▖')}`);
-    console.log(`  ${P('▐')}${B('  ')}${W('██')}${B('    ')}${W('██')}${B('   ')}${P('▌')}  ${chalk.bold.hex('#786af4')('ConvoAI Voice Chat')}`);
-    console.log(`  ${P('▐')}${B('    ')}${W('▀▀▀▀')}${B('    ')}${P('▌')}  ${chalk.dim(`Channel: ${this.channel}`)}`);
-    console.log(`  ${P('▝▀▀▀▀▀▀▀█▀▀▀▀▘')}  ${chalk.dim(`Agent: ${this.agentId.slice(0, 16)}...`)}`);
-    console.log(`  ${P('         ▀▚')}`);
-    console.log('');
-    console.log(chalk.dim('  ─────────────────────────────────────────'));
-    console.log('');
+    // Banner (7 lines)
+    lines.push('');
+    lines.push(`  ${P('▗▄▄▄▄▄▄▄▄▄▄▄▄▄▖')}`);
+    lines.push(`  ${P('▐')}${B('  ')}${W('██')}${B('    ')}${W('██')}${B('   ')}${P('▌')}  ${chalk.bold.hex('#786af4')('ConvoAI Voice Chat')}`);
+    lines.push(`  ${P('▐')}${B('    ')}${W('▀▀▀▀')}${B('    ')}${P('▌')}  ${chalk.dim(`Channel: ${this.channel}`)}`);
+    lines.push(`  ${P('▝▀▀▀▀▀▀▀█▀▀▀▀▘')}  ${chalk.dim(`Agent: ${this.agentId.slice(0, 16)}...`)}`);
+    lines.push(`  ${P('         ▀▚')}`);
+    lines.push('');
+    lines.push(chalk.dim('  ─────────────────────────────────────────'));
+    lines.push('');
 
+    // Messages
     if (this.messages.length === 0) {
-      console.log(chalk.dim('  Waiting for conversation...'));
+      lines.push(chalk.dim('  Waiting for conversation...'));
     } else {
-      const show = this.messages.slice(-15);
+      const show = this.messages.slice(-12);
       for (const msg of show) {
         if (msg.role === 'assistant') {
           const latencyTag = msg.e2e_ms
             ? chalk.dim('[') + fmtLatency(msg.e2e_ms) + chalk.dim('] ')
             : '';
-          const prefix = `  ${chalk.green('[assistant]')} ${latencyTag}`;
-          const lines = wrapText(msg.content, msgWidth);
-          console.log(`${prefix}${lines[0]}`);
-          for (let i = 1; i < lines.length; i++) {
-            console.log(`               ${lines[i]}`);
+          const wrapped = wrapText(msg.content, msgWidth);
+          lines.push(`  ${chalk.green('[assistant]')} ${latencyTag}${wrapped[0]}`);
+          for (let i = 1; i < wrapped.length; i++) {
+            lines.push(`               ${wrapped[i]}`);
           }
         } else {
-          const lines = wrapText(msg.content, msgWidth);
-          console.log(`  ${chalk.cyan('[you]      ')} ${lines[0]}`);
-          for (let i = 1; i < lines.length; i++) {
-            console.log(`               ${lines[i]}`);
+          const wrapped = wrapText(msg.content, msgWidth);
+          lines.push(`  ${chalk.cyan('[you]      ')} ${wrapped[0]}`);
+          for (let i = 1; i < wrapped.length; i++) {
+            lines.push(`               ${wrapped[i]}`);
           }
         }
       }
     }
 
-    console.log('');
-    console.log(chalk.dim('  ─────────────────────────────────────────'));
+    lines.push('');
+    lines.push(chalk.dim('  ─────────────────────────────────────────'));
+    lines.push(this.agentSpeaking
+      ? `  ${chalk.green('🔊 Agent speaking...')}`
+      : `  ${chalk.cyan('🎙  Listening...')} ${chalk.dim('(speak now)')}`);
+    lines.push('');
+    lines.push(chalk.dim('  Press Ctrl+C to exit'));
 
-    if (this.agentSpeaking) {
-      console.log(`  ${chalk.green('🔊 Agent speaking...')}`);
-    } else {
-      console.log(`  ${chalk.cyan('🎙  Listening...')} ${chalk.dim('(speak now)')}`);
-    }
+    // Pad to fill terminal height (prevents leftover lines from previous render)
+    while (lines.length < termHeight) lines.push('');
 
-    console.log('');
-    console.log(chalk.dim('  Press Ctrl+C to exit'));
+    // Write all at once — cursor home, then overwrite
+    process.stdout.write('\x1b[H' + lines.join('\n') + '\x1b[J');
   }
 }
 
@@ -405,7 +409,10 @@ async function chatAction(opts: {
   ui.render();
 
   // ── 6. Cleanup on exit ─────────────────────────────────────────────────────
+  let cleaningUp = false;
   const cleanup = async () => {
+    if (cleaningUp) return;
+    cleaningUp = true;
     clearInterval(historyTimer);
 
     // Tell headless page to leave channel
