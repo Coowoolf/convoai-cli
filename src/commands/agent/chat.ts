@@ -287,11 +287,11 @@ async function chatAction(opts: {
     executablePath: chromePath,
     headless: false,
     args: [
-      '--use-fake-ui-for-media-stream', // auto-grant microphone
+      '--use-fake-ui-for-media-stream',
       '--autoplay-policy=no-user-gesture-required',
       '--no-sandbox',
-      '--window-size=1,1',              // tiny window
-      '--window-position=10000,10000',  // off screen
+      '--window-size=1,1',
+      '--window-position=-2000,-2000', // negative = off left/top edge
       '--enable-features=WebRtcAecAudioProcessing',
     ],
   });
@@ -311,6 +311,22 @@ async function chatAction(opts: {
   });
 
   await page.goto(`http://localhost:${httpPort}?${params}`);
+
+  // macOS: hide Chrome window and bring terminal back to focus
+  if (process.platform === 'darwin') {
+    try {
+      const { execSync: exec } = await import('node:child_process');
+      // Hide Chrome, activate Terminal/iTerm
+      exec(`osascript -e 'tell application "System Events"
+        set visible of process "Google Chrome" to false
+      end tell' 2>/dev/null`, { stdio: 'ignore' });
+      // Bring terminal back
+      exec(`osascript -e 'tell application "System Events"
+        set frontProcess to first process whose frontmost is false and visible is true and name is not "Google Chrome"
+        set frontmost of frontProcess to true
+      end tell' 2>/dev/null`, { stdio: 'ignore' });
+    } catch { /* osascript may fail, not critical */ }
+  }
 
   // ── 5. Poll history for transcription ──────────────────────────────────────
   const historyTimer = setInterval(async () => {
