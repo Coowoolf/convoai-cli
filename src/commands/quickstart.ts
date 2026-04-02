@@ -413,7 +413,7 @@ async function quickstartAction(): Promise<void> {
       ttsParams.voice_name = msAnswers.voiceName;
     }
 
-    // MiniMax-specific: group_id + auto-fill model/voice/url
+    // MiniMax-specific: group_id
     if (selectedTts.requiresGroupId) {
       const { groupId } = await inquirer.prompt([
         {
@@ -424,9 +424,24 @@ async function quickstartAction(): Promise<void> {
         },
       ]);
       ttsParams.group_id = groupId;
-      // Auto-fill sensible defaults so developer doesn't have to
-      if (selectedTts.defaultParams) {
-        for (const [k, v] of Object.entries(selectedTts.defaultParams)) {
+    }
+
+    // OpenAI TTS uses api_key instead of key
+    if (ttsVendor === 'openai') {
+      ttsParams.api_key = ttsParams.key;
+      delete ttsParams.key;
+    }
+
+    // Cartesia uses api_key instead of key
+    if (ttsVendor === 'cartesia') {
+      ttsParams.api_key = ttsParams.key;
+      delete ttsParams.key;
+    }
+
+    // Auto-fill vendor defaults (base_url, model, voice, etc.)
+    if (selectedTts.defaultParams) {
+      for (const [k, v] of Object.entries(selectedTts.defaultParams)) {
+        if (!(k in ttsParams)) { // don't override user-provided values
           ttsParams[k] = v;
         }
       }
@@ -474,6 +489,8 @@ async function quickstartAction(): Promise<void> {
       },
     ]);
 
+    const selectedAsr = ASR_PROVIDERS.find((p) => p.vendor === asrVendor)!;
+
     // API Key — not needed for ARES
     let asrKey: string | undefined;
     if (asrVendor !== 'ares') {
@@ -487,6 +504,21 @@ async function quickstartAction(): Promise<void> {
         },
       ]);
       asrKey = key;
+    }
+
+    // Microsoft ASR needs region
+    let asrRegion: string | undefined;
+    if (selectedAsr.requiresRegion) {
+      const { region } = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'region',
+          message: 'Azure ASR Region:',
+          default: 'eastus',
+          validate: (v: string) => v.trim().length > 0 || 'Required',
+        },
+      ]);
+      asrRegion = region;
     }
 
     // Language selection
@@ -510,10 +542,19 @@ async function quickstartAction(): Promise<void> {
         language: asrLanguage,
       };
     } else {
+      const asrParams: Record<string, unknown> = { key: asrKey };
+      if (asrRegion) asrParams.region = asrRegion;
+      if (asrLanguage) asrParams.language = asrLanguage;
+      // Auto-fill vendor defaults (url, model, etc.)
+      if (selectedAsr.defaultParams) {
+        for (const [k, v] of Object.entries(selectedAsr.defaultParams)) {
+          if (!(k in asrParams)) asrParams[k] = v;
+        }
+      }
       profile.asr = {
         vendor: asrVendor,
         language: asrLanguage,
-        params: { key: asrKey },
+        params: asrParams,
       };
     }
 

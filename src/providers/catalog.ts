@@ -127,6 +127,12 @@ export const TTS_PROVIDERS: TTSProvider[] = [
     vendor: 'elevenlabs',
     requiresKey: true,
     note: 'High quality, multilingual',
+    defaultParams: {
+      base_url: 'wss://api.elevenlabs.io/v1',
+      model_id: 'eleven_flash_v2_5',
+      voice_id: 'pNInz6obpgDQGcFmaJgB',
+      sample_rate: 24000,
+    },
   },
   {
     name: 'Microsoft Azure',
@@ -153,12 +159,21 @@ export const TTS_PROVIDERS: TTSProvider[] = [
     vendor: 'openai',
     requiresKey: true,
     beta: true,
+    defaultParams: {
+      base_url: 'https://api.openai.com/v1',
+      model: 'gpt-4o-mini-tts',
+      voice: 'coral',
+    },
   },
   {
     name: 'Cartesia',
     vendor: 'cartesia',
     requiresKey: true,
     beta: true,
+    defaultParams: {
+      model_id: 'sonic-2',
+      voice: { mode: 'id', id: 'a0e99841-438c-4a64-b679-ae501e7d6091' },
+    },
   },
   {
     name: 'Hume AI',
@@ -212,6 +227,8 @@ export interface ASRProvider {
   name: string;
   vendor: string;
   requiresKey: boolean;
+  requiresRegion?: boolean;
+  defaultParams?: Record<string, unknown>;
   beta?: boolean;
   note?: string;
 }
@@ -227,11 +244,17 @@ export const ASR_PROVIDERS: ASRProvider[] = [
     name: 'Microsoft Azure',
     vendor: 'microsoft',
     requiresKey: true,
+    requiresRegion: true,
+    defaultParams: { region: 'eastus' },
   },
   {
     name: 'Deepgram',
     vendor: 'deepgram',
     requiresKey: true,
+    defaultParams: {
+      url: 'wss://api.deepgram.com/v1/listen',
+      model: 'nova-3',
+    },
   },
   {
     name: 'OpenAI Whisper',
