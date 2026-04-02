@@ -213,12 +213,32 @@ async function chatAction(opts: {
   };
 
   const api = getAgentAPI(opts.profile);
+
+  // Stop any leftover running agents first
+  try {
+    const existing = await api.list({ state: 2, limit: 10 });
+    if (existing.data.list.length > 0) {
+      await withSpinner(`Cleaning up ${existing.data.list.length} leftover agent(s)...`, async () => {
+        for (const a of existing.data.list) {
+          try { await api.stop(a.agent_id); } catch { /* */ }
+        }
+      });
+    }
+  } catch { /* */ }
+
   const result = await withSpinner('Starting agent...', () => api.start(request));
   track('agent_chat');
 
   // ── 3. Start HTTP + WebSocket servers ──────────────────────────────────────
   const httpPort = 3210;
   const wsPort = 3211;
+
+  // Kill any leftover processes on our ports
+  try {
+    const { execSync: exec } = await import('node:child_process');
+    exec(`lsof -ti:${httpPort},${wsPort} | xargs kill -9 2>/dev/null`, { stdio: 'ignore' });
+    await new Promise(r => setTimeout(r, 300));
+  } catch { /* no leftover processes */ }
 
   const htmlPath = findChatHtml();
   const html = readFileSync(htmlPath, 'utf-8');
