@@ -91,24 +91,35 @@ function createOpenClawBridge(agentId: string, port: number): Promise<ReturnType
           choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }],
         })}\n\n`);
 
-        const fillers = ['好的，', '让我', '想一想...', ' '];
-        for (const f of fillers) {
-          res.write(chunk(f));
-        }
+        // ── A. Send filler IMMEDIATELY then flush ────────────────────
+        res.write(chunk('好的，让我想一想。'));
+        // Force flush by calling res.flushHeaders if available
+        if (typeof (res as any).flush === 'function') (res as any).flush();
 
-        // ── B. Call OpenClaw in background ──────────────────────────────
-        const { execSync: exec } = await import('node:child_process');
-        const escaped = userText.replace(/'/g, "'\\''");
-        const result = exec(
-          `openclaw agent --agent ${agentId} --message '${escaped}' --json 2>/dev/null`,
-          { encoding: 'utf-8', timeout: 120000 },
-        );
+        // ── B. Call OpenClaw ASYNC (non-blocking, so filler can flush) ──
+        const { execFile } = await import('node:child_process');
+        const escaped = userText.replace(/"/g, '\\"');
 
-        const parsed = JSON.parse(result);
-        const replyText = parsed.result?.payloads?.[0]?.text ?? '抱歉，我没能处理这个请求。';
+        const replyText = await new Promise<string>((resolve) => {
+          execFile('openclaw', [
+            'agent', '--agent', agentId,
+            '--message', userText,
+            '--json',
+          ], { timeout: 120000 }, (err, stdout) => {
+            if (err) {
+              resolve('抱歉，我暂时无法处理这个请求。');
+              return;
+            }
+            try {
+              const parsed = JSON.parse(stdout);
+              resolve(parsed.result?.payloads?.[0]?.text ?? '抱歉，我没能处理这个请求。');
+            } catch {
+              resolve('抱歉，解析回复时出错了。');
+            }
+          });
+        });
 
-        // ── C. Stream the real reply in natural chunks ──────────────────
-        // Split by sentences for more natural TTS pacing
+        // ── C. Stream the real reply by sentences ──────────────────────
         const sentences = replyText.match(/[^。！？.!?\n]+[。！？.!?\n]?/g) ?? [replyText];
         for (const sentence of sentences) {
           res.write(chunk(sentence));
