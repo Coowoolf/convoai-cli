@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html><head><title>ConvoAI Headless</title></head>
+<body>
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.22.0.js"></script>
+<script>
+  const P = new URLSearchParams(location.search);
+  const appId = P.get('appId');
+  const channel = P.get('channel');
+  const token = P.get('token') || null;
+  const uid = Number(P.get('uid')) || 0;
+  const wsPort = P.get('wsPort') || '3211';
+
+  let ws, client, localTrack;
+
+  function send(msg) {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg));
+  }
+
+  async function cleanup() {
+    try { if (localTrack) { localTrack.stop(); localTrack.close(); } } catch {}
+    try { if (client) await client.leave(); } catch {}
+    send({ type: 'stopped' });
+  }
+
+  async function start() {
+    ws = new WebSocket('ws://localhost:' + wsPort);
+    ws.onopen = () => send({ type: 'ws_connected' });
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'stop') cleanup();
+      } catch {}
+    };
+
+    try {
+      client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+
+      client.on('user-published', async (user, mediaType) => {
+        await client.subscribe(user, mediaType);
+        if (mediaType === 'audio') {
+          user.audioTrack.play();
+          send({ type: 'agent_speaking', speaking: true });
+        }
+      });
+
+      client.on('user-unpublished', (user, mediaType) => {
+        if (mediaType === 'audio') send({ type: 'agent_speaking', speaking: false });
+      });
+
+      client.on('user-left', () => send({ type: 'agent_left' }));
+
+      send({ type: 'status', text: 'Joining channel...' });
+      await client.join(appId, channel, token, uid || null);
+      send({ type: 'status', text: 'Joined' });
+
+      localTrack = await AgoraRTC.createMicrophoneAudioTrack();
+      await client.publish([localTrack]);
+      send({ type: 'ready' });
+    } catch (err) {
+      send({ type: 'error', text: err.message });
+    }
+  }
+
+  start();
+</script>
+</body>
+</html>

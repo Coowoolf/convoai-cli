@@ -18,6 +18,7 @@ import { registerAgentHistory } from './commands/agent/history.js';
 import { registerAgentTurns } from './commands/agent/turns.js';
 import { registerAgentWatch } from './commands/agent/watch.js';
 import { registerAgentJoin } from './commands/agent/join.js';
+import { registerAgentChat } from './commands/agent/chat.js';
 
 // ─── Config Commands ────────────────────────────────────────────────────────
 import { registerConfigInit } from './commands/config/init.js';
@@ -118,6 +119,7 @@ export function run(): void {
   registerAgentTurns(agent);
   registerAgentWatch(agent);
   registerAgentJoin(agent);
+  registerAgentChat(agent);
 
   // ── call ────────────────────────────────────────────────────────────────
   const call = program
