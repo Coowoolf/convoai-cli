@@ -145,7 +145,7 @@ export const TTS_PROVIDERS: TTSProvider[] = [
     defaultParams: {
       model: 'speech-02-turbo',
       voice_setting: { voice_id: 'English_captivating_female1' },
-      url: 'wss://api-uw.minimax.io/ws/v1/t2a_v2',
+      url: 'wss://api.minimaxi.com/ws/v1/t2a_v2',
     },
   },
   {
