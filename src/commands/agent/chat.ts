@@ -268,6 +268,7 @@ async function chatAction(opts: {
       '--use-fake-ui-for-media-stream', // auto-grant microphone
       '--autoplay-policy=no-user-gesture-required',
       '--no-sandbox',
+      '--enable-features=WebRtcAecAudioProcessing', // echo cancellation
     ],
   });
 
