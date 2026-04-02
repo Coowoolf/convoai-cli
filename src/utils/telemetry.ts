@@ -33,6 +33,8 @@ function isEnabled(): boolean {
   return true;
 }
 
+let _seq = 0;
+
 /**
  * Send an anonymous telemetry event. Fire-and-forget, never throws, never blocks.
  */
@@ -48,7 +50,7 @@ export function track(event: string, extra?: { error_type?: string }): void {
   const body = JSON.stringify({
     event,
     session_id: getSessionId(),
-    ts: Date.now(),
+    ts: Date.now() + _seq++,  // monotonic: ensures correct ordering even for instant steps
     region: process.env.CONVOAI_REGION ?? undefined,
     version,
     ...extra,
