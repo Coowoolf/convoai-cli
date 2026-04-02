@@ -261,14 +261,18 @@ async function chatAction(opts: {
 
   // ── 4. Launch headless Chrome ──────────────────────────────────────────────
   const puppeteer = await import('puppeteer-core');
+  // headless: false is required for audio playback (headless Chrome has no audio output)
+  // We minimize the window so it's out of the way — user sees only the terminal
   const browser = await puppeteer.default.launch({
     executablePath: chromePath,
-    headless: true,
+    headless: false,
     args: [
       '--use-fake-ui-for-media-stream', // auto-grant microphone
       '--autoplay-policy=no-user-gesture-required',
       '--no-sandbox',
-      '--enable-features=WebRtcAecAudioProcessing', // echo cancellation
+      '--window-size=1,1',              // tiny window
+      '--window-position=10000,10000',  // off screen
+      '--enable-features=WebRtcAecAudioProcessing',
     ],
   });
 
