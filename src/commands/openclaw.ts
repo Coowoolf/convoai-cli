@@ -71,76 +71,52 @@ function createOpenClawBridge(agentId: string, port: number): Promise<ReturnType
       }
 
       try {
-        // Call OpenClaw agent
+        const id = `chatcmpl-openclaw-${Date.now()}`;
+        const ts = () => Math.floor(Date.now() / 1000);
+        const chunk = (content: string, finish?: string) => `data: ${JSON.stringify({
+          id, object: 'chat.completion.chunk', created: ts(),
+          choices: [{ index: 0, delta: content ? { content } : {}, finish_reason: finish ?? null }],
+        })}\n\n`;
+
+        // Always stream (Agora requires it)
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        });
+
+        // ── A. Send filler immediately (user hears "让我想想" within 1s) ──
+        res.write(`data: ${JSON.stringify({
+          id, object: 'chat.completion.chunk', created: ts(),
+          choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }],
+        })}\n\n`);
+
+        const fillers = ['好的，', '让我', '想一想...', ' '];
+        for (const f of fillers) {
+          res.write(chunk(f));
+        }
+
+        // ── B. Call OpenClaw in background ──────────────────────────────
+        const { execSync: exec } = await import('node:child_process');
         const escaped = userText.replace(/'/g, "'\\''");
-        const result = execSync(
+        const result = exec(
           `openclaw agent --agent ${agentId} --message '${escaped}' --json 2>/dev/null`,
           { encoding: 'utf-8', timeout: 120000 },
         );
 
-        // Parse OpenClaw response
         const parsed = JSON.parse(result);
-        const replyText = parsed.result?.payloads?.[0]?.text ?? 'Sorry, I could not process that.';
+        const replyText = parsed.result?.payloads?.[0]?.text ?? '抱歉，我没能处理这个请求。';
 
-        // Return as OpenAI-compatible streaming response (SSE)
-        const isStream = body.stream === true;
-
-        if (isStream) {
-          res.writeHead(200, {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-          });
-
-          // Send as SSE chunks (Agora ConvoAI requires streaming)
-          const id = `chatcmpl-openclaw-${Date.now()}`;
-
-          // First chunk: role
-          res.write(`data: ${JSON.stringify({
-            id,
-            object: 'chat.completion.chunk',
-            created: Math.floor(Date.now() / 1000),
-            choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }],
-          })}\n\n`);
-
-          // Content chunks (split into small pieces for natural streaming)
-          const words = replyText.split('');
-          const chunkSize = 5;
-          for (let i = 0; i < words.length; i += chunkSize) {
-            const piece = words.slice(i, i + chunkSize).join('');
-            res.write(`data: ${JSON.stringify({
-              id,
-              object: 'chat.completion.chunk',
-              created: Math.floor(Date.now() / 1000),
-              choices: [{ index: 0, delta: { content: piece }, finish_reason: null }],
-            })}\n\n`);
-          }
-
-          // Final chunk
-          res.write(`data: ${JSON.stringify({
-            id,
-            object: 'chat.completion.chunk',
-            created: Math.floor(Date.now() / 1000),
-            choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
-          })}\n\n`);
-
-          res.write('data: [DONE]\n\n');
-          res.end();
-        } else {
-          // Non-streaming response
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            id: `chatcmpl-openclaw-${Date.now()}`,
-            object: 'chat.completion',
-            created: Math.floor(Date.now() / 1000),
-            choices: [{
-              index: 0,
-              message: { role: 'assistant', content: replyText },
-              finish_reason: 'stop',
-            }],
-            usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-          }));
+        // ── C. Stream the real reply in natural chunks ──────────────────
+        // Split by sentences for more natural TTS pacing
+        const sentences = replyText.match(/[^。！？.!?\n]+[。！？.!?\n]?/g) ?? [replyText];
+        for (const sentence of sentences) {
+          res.write(chunk(sentence));
         }
+
+        res.write(chunk('', 'stop'));
+        res.write('data: [DONE]\n\n');
+        res.end();
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(chalk.dim(`  [bridge] OpenClaw error: ${msg}`));
@@ -268,11 +244,18 @@ async function openclawAction(opts: {
       llm: {
         url: `${ngrokUrl}/v1/chat/completions`,
         api_key: 'openclaw-local',
-        system_messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
+        system_messages: [{ role: 'system', content: 'You are a helpful assistant. Respond concisely in the same language as the user.' }],
+        greeting_message: '你好，我是你的 OpenClaw 语音助手，有什么可以帮你的？',
         params: { model: 'openclaw', max_tokens: 2048 },
       },
       tts: config.tts,
       asr: config.asr?.vendor ? config.asr : { vendor: 'ares', language: 'zh-CN' },
+      // ── VAD tuning: longer silence = less premature cutoff ──
+      turn_detection: {
+        silence_duration_ms: 1000,     // wait 1s of silence before ending turn (default 480ms)
+        interrupt_duration_ms: 160,
+        prefix_padding_ms: 800,
+      },
     },
   };
 
