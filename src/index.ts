@@ -49,6 +49,9 @@ import { registerToken } from './commands/token.js';
 // ─── Quickstart ───────────────────────────────────────────────────────────
 import { registerQuickstart } from './commands/quickstart.js';
 
+// ─── OpenClaw ─────────────────────────────────────────────────────────────
+import { registerOpenClaw } from './commands/openclaw.js';
+
 // ─── Completion & REPL ─────────────────────────────────────────────────────
 import { registerCompletion } from './commands/completion.js';
 import { registerRepl } from './commands/repl.js';
@@ -168,6 +171,9 @@ export function run(): void {
 
   // ── quickstart ──────────────────────────────────────────────────────────
   registerQuickstart(program);
+
+  // ── openclaw ───────────────────────────────────────────────────────────
+  registerOpenClaw(program);
 
   // ── token ───────────────────────────────────────────────────────────────
   registerToken(program);
