@@ -81,6 +81,9 @@ ${chalk.dim('CLI for Agora ConvoAI Engine')}
 `;
 
 export function run(): void {
+  // Non-blocking update check (fire and forget)
+  import('./utils/update-check.js').then(m => m.checkForUpdate(VERSION)).catch(() => {});
+
   const program = new Command();
 
   program

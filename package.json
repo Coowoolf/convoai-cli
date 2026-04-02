@@ -1,6 +1,6 @@
 {
   "name": "convoai",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "CLI for Agora ConvoAI Engine — start, manage, and monitor conversational AI agents",
   "type": "module",
   "bin": {
