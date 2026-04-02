@@ -91,9 +91,19 @@ function createOpenClawBridge(agentId: string, port: number): Promise<ReturnType
           choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }],
         })}\n\n`);
 
-        // ── A. Send filler IMMEDIATELY then flush ────────────────────
-        res.write(chunk('好的，让我想一想。'));
-        // Force flush by calling res.flushHeaders if available
+        // ── A. Random filler — immediate feedback ────────────────────
+        const fillers = [
+          '好的，让我想一想。',
+          '收到了，我来看一看。',
+          '嗯，让我处理一下。',
+          '好，我来帮你查一下。',
+          '收到，稍等我一下。',
+          '我看到了，让我想想怎么回答。',
+          '好的，马上回复你。',
+          '嗯嗯，让我看看。',
+        ];
+        const filler = fillers[Math.floor(Math.random() * fillers.length)];
+        res.write(chunk(filler));
         if (typeof (res as any).flush === 'function') (res as any).flush();
 
         // ── B. Call OpenClaw ASYNC (non-blocking, so filler can flush) ──
@@ -256,7 +266,7 @@ async function openclawAction(opts: {
         url: `${ngrokUrl}/v1/chat/completions`,
         api_key: 'openclaw-local',
         system_messages: [{ role: 'system', content: 'You are a helpful assistant. Respond concisely in the same language as the user.' }],
-        greeting_message: '你好，我是你的 OpenClaw 语音助手，有什么可以帮你的？',
+        // greeting sent via speak API with 1s delay (see below)
         params: { model: 'openclaw', max_tokens: 2048 },
       },
       tts: config.tts,
@@ -344,6 +354,15 @@ async function openclawAction(opts: {
     console.log(chalk.dim('  You → mic → ASR → OpenClaw 🦞 → TTS → speaker'));
     console.log('');
     console.log(chalk.dim('  Press Ctrl+C to stop.'));
+
+    // Delayed greeting via speak API (1.5s after browser opens)
+    setTimeout(async () => {
+      try {
+        await api.speak(result.agent_id, {
+          text: '你好，我是你的 OpenClaw 语音助手，有什么可以帮你的？',
+        });
+      } catch { /* greeting is nice-to-have, not critical */ }
+    }, 1500);
 
     // Cleanup
     const cleanup = async () => {
