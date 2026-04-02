@@ -52,15 +52,15 @@ export function registerQuickstart(program: Command): void {
 function banner(): void {
   console.log('');
   console.log(chalk.cyan('       ') + chalk.blueBright.bold('/\\/\\'));
-  console.log(chalk.cyan('      ') + chalk.blueBright.bold('/    \\') + chalk.yellow('  ⚡'));
-  console.log(chalk.cyan('     ') + chalk.blueBright.bold('/') + chalk.cyan(' \\  / ') + chalk.blueBright.bold('\\'));
-  console.log(chalk.cyan('    ') + chalk.blueBright.bold('/') + chalk.cyan('   \\/   ') + chalk.blueBright.bold('\\'));
-  console.log(chalk.cyan('   ') + chalk.blueBright.bold('\\___') + chalk.cyan('  ') + chalk.blueBright.bold('___/'));
-  console.log(chalk.cyan('       ') + chalk.blueBright.bold('\\/'));
+  const line = chalk.blueBright('  ─────────────────────────────────────────');
+  console.log(line);
   console.log('');
-  console.log(chalk.cyan.bold('   ConvoAI Quickstart'));
-  console.log(chalk.dim('   Voice AI in 2 minutes ⚡🐦'));
+  console.log(chalk.blueBright.bold('   ⚡🐦  C O N V O A I'));
   console.log('');
+  console.log(chalk.white('   Voice AI in 2 minutes'));
+  console.log(chalk.dim('   Powered by Agora ConvoAI Engine'));
+  console.log('');
+  console.log(line);
 }
 
 function step(n: number, total: number, label: string): void {
@@ -72,6 +72,13 @@ function step(n: number, total: number, label: string): void {
 // ─── Main Action ───────────────────────────────────────────────────────────
 
 async function quickstartAction(): Promise<void> {
+  // Graceful exit on Ctrl+C during prompts
+  process.on('SIGINT', () => {
+    console.log('\n');
+    console.log(chalk.dim('  Interrupted. Run `convoai quickstart` to resume.'));
+    process.exit(0);
+  });
+
   const { default: inquirer } = await import('inquirer');
 
   banner();

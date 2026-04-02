@@ -29,16 +29,14 @@ fatal()   { error "$@"; exit 1; }
 
 banner() {
   printf "\n"
-  printf "${BLUE}        ___         ${CYAN}/\\\\${RESET}\n"
-  printf "${BLUE}       / _ \\\\      ${CYAN}/ ${BOLD}⚡${RESET}${CYAN} \\\\${RESET}\n"
-  printf "${BLUE}      / /${CYAN}\\\\${BLUE} \\\\    ${CYAN}/    \\\\ \\\\${RESET}\n"
-  printf "${BLUE}     / /  ${CYAN}\\\\_\\\\__/${BLUE}  ____${CYAN}\\\\>${RESET}\n"
-  printf "${BLUE}    /_/   ${CYAN}\\\\______${BLUE}/ ${CYAN}/${RESET}\n"
-  printf "${BLUE}           ${CYAN}\\\\      /${RESET}\n"
-  printf "${BLUE}            ${CYAN}\\\\____/${RESET}\n"
+  printf "${CYAN}  ─────────────────────────────────────────${RESET}\n"
   printf "\n"
-  printf "${BOLD}${BLUE}    c o n v o a i${RESET}\n"
-  printf "${DIM}    Works everywhere. Installs everything.${RESET}\n"
+  printf "${BOLD}${CYAN}   ⚡🐦  C O N V O A I${RESET}\n"
+  printf "\n"
+  printf "   Works everywhere. Installs everything.\n"
+  printf "${DIM}   Powered by Agora ConvoAI Engine${RESET}\n"
+  printf "\n"
+  printf "${CYAN}  ─────────────────────────────────────────${RESET}\n"
   printf "\n"
 }
 
@@ -175,7 +173,7 @@ main() {
   success "All set! Launching quickstart...\n"
   printf "\n"
 
-  exec convoai quickstart
+  exec convoai quickstart </dev/tty
 }
 
 main
