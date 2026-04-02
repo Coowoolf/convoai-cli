@@ -46,20 +46,46 @@ function findChatHtml(): string {
 
 // ─── Terminal UI ────────────────────────────────────────────────────────────
 
+interface ChatMessage {
+  role: string;
+  content: string;
+  e2e_ms?: number;
+  interrupted?: boolean;
+}
+
+function wrapText(text: string, maxWidth: number): string[] {
+  if (text.length <= maxWidth) return [text];
+  const lines: string[] = [];
+  let remaining = text;
+  while (remaining.length > 0) {
+    if (remaining.length <= maxWidth) { lines.push(remaining); break; }
+    let cut = remaining.lastIndexOf(' ', maxWidth);
+    if (cut <= 0) cut = maxWidth;
+    lines.push(remaining.slice(0, cut));
+    remaining = remaining.slice(cut).trimStart();
+  }
+  return lines;
+}
+
+function fmtLatency(ms: number): string {
+  if (ms < 1000) return chalk.green(`${ms}ms`);
+  const s = (ms / 1000).toFixed(1);
+  if (ms < 2000) return chalk.yellow(`${s}s`);
+  return chalk.red(`${s}s`);
+}
+
 class TerminalUI {
-  private messages: { role: string; content: string }[] = [];
-  private status = 'Starting...';
+  private messages: ChatMessage[] = [];
   private agentSpeaking = false;
   private agentId = '';
   private channel = '';
 
   setAgent(id: string, ch: string) { this.agentId = id; this.channel = ch; }
-  setStatus(s: string) { this.status = s; this.render(); }
   setAgentSpeaking(s: boolean) { this.agentSpeaking = s; this.render(); }
 
-  updateMessages(entries: HistoryEntry[]) {
-    if (entries.length > this.messages.length) {
-      this.messages = entries.map(e => ({ role: e.role, content: e.content || '' }));
+  updateMessages(msgs: ChatMessage[]) {
+    if (msgs.length > this.messages.length || msgs.some((m, i) => m.e2e_ms !== this.messages[i]?.e2e_ms)) {
+      this.messages = msgs;
       this.render();
     }
   }
@@ -68,31 +94,42 @@ class TerminalUI {
     const P = chalk.hex('#786af4');
     const B = chalk.hex('#5b8eff');
     const W = chalk.hex('#c8c8ff');
+    const termWidth = process.stdout.columns || 80;
+    const msgWidth = Math.max(termWidth - 20, 30);
 
-    // Clear screen
     process.stdout.write('\x1b[2J\x1b[H');
 
-    // Banner
     console.log('');
     console.log(`  ${P('▗▄▄▄▄▄▄▄▄▄▄▄▄▄▖')}`);
     console.log(`  ${P('▐')}${B('  ')}${W('██')}${B('    ')}${W('██')}${B('   ')}${P('▌')}  ${chalk.bold.hex('#786af4')('ConvoAI Voice Chat')}`);
     console.log(`  ${P('▐')}${B('    ')}${W('▀▀▀▀')}${B('    ')}${P('▌')}  ${chalk.dim(`Channel: ${this.channel}`)}`);
-    console.log(`  ${P('▝▀▀▀▀▀▀▀█▀▀▀▀▘')}  ${chalk.dim(`Agent: ${this.agentId.slice(0, 12)}...`)}`);
+    console.log(`  ${P('▝▀▀▀▀▀▀▀█▀▀▀▀▘')}  ${chalk.dim(`Agent: ${this.agentId.slice(0, 16)}...`)}`);
     console.log(`  ${P('         ▀▚')}`);
     console.log('');
     console.log(chalk.dim('  ─────────────────────────────────────────'));
     console.log('');
 
-    // Messages
     if (this.messages.length === 0) {
       console.log(chalk.dim('  Waiting for conversation...'));
     } else {
-      const show = this.messages.slice(-12); // show last 12 messages
+      const show = this.messages.slice(-15);
       for (const msg of show) {
         if (msg.role === 'assistant') {
-          console.log(`  ${chalk.green('[assistant]')}  ${msg.content}`);
+          const latencyTag = msg.e2e_ms
+            ? chalk.dim('[') + fmtLatency(msg.e2e_ms) + chalk.dim('] ')
+            : '';
+          const prefix = `  ${chalk.green('[assistant]')} ${latencyTag}`;
+          const lines = wrapText(msg.content, msgWidth);
+          console.log(`${prefix}${lines[0]}`);
+          for (let i = 1; i < lines.length; i++) {
+            console.log(`               ${lines[i]}`);
+          }
         } else {
-          console.log(`  ${chalk.cyan('[you]      ')}  ${msg.content}`);
+          const lines = wrapText(msg.content, msgWidth);
+          console.log(`  ${chalk.cyan('[you]      ')} ${lines[0]}`);
+          for (let i = 1; i < lines.length; i++) {
+            console.log(`               ${lines[i]}`);
+          }
         }
       }
     }
@@ -100,7 +137,6 @@ class TerminalUI {
     console.log('');
     console.log(chalk.dim('  ─────────────────────────────────────────'));
 
-    // Status bar
     if (this.agentSpeaking) {
       console.log(`  ${chalk.green('🔊 Agent speaking...')}`);
     } else {
@@ -263,16 +299,16 @@ async function chatAction(opts: {
         const msg = JSON.parse(raw.toString());
         switch (msg.type) {
           case 'ready':
-            ui.setStatus('Connected — speak now!');
+            ui.render();
             break;
           case 'agent_speaking':
             ui.setAgentSpeaking(msg.speaking);
             break;
           case 'agent_left':
-            ui.setStatus('Agent disconnected');
+            ui.render();
             break;
           case 'error':
-            ui.setStatus(`Error: ${msg.text}`);
+            ui.render();
             break;
         }
       } catch { /* ignore */ }
@@ -328,17 +364,45 @@ async function chatAction(opts: {
     } catch { /* osascript may fail, not critical */ }
   }
 
-  // ── 5. Poll history for transcription ──────────────────────────────────────
+  // ── 5. Poll history + turns for transcription & latency ─────────────────────
   const historyTimer = setInterval(async () => {
     try {
-      const h = await api.history(result.agent_id);
-      const entries = h.contents ?? [];
-      ui.updateMessages(entries);
+      const [h, t] = await Promise.all([
+        api.history(result.agent_id).catch(() => null),
+        api.turns(result.agent_id).catch(() => null),
+      ]);
+
+      const entries = h?.contents ?? [];
+      const turns = t?.turns ?? [];
+
+      // Build latency map from turns: match assistant responses with e2e latency
+      const latencyMap = new Map<number, { e2e_ms?: number; interrupted?: boolean }>();
+      for (let i = 0; i < turns.length; i++) {
+        latencyMap.set(i, {
+          e2e_ms: turns[i].e2e_latency_ms,
+          interrupted: turns[i].end_reason === 'interrupted',
+        });
+      }
+
+      // Merge history entries with latency data
+      const msgs: ChatMessage[] = [];
+      let turnIdx = 0;
+      for (const e of entries) {
+        const msg: ChatMessage = { role: e.role, content: e.content || '' };
+        if (e.role === 'assistant' && turnIdx < turns.length) {
+          msg.e2e_ms = turns[turnIdx]?.e2e_latency_ms;
+          msg.interrupted = turns[turnIdx]?.end_reason === 'interrupted';
+          turnIdx++;
+        }
+        msgs.push(msg);
+      }
+
+      ui.updateMessages(msgs);
     } catch { /* agent may have stopped */ }
-  }, 2000);
+  }, 1500);
 
   // Initial render
-  ui.setStatus('Connecting...');
+  ui.render();
 
   // ── 6. Cleanup on exit ─────────────────────────────────────────────────────
   const cleanup = async () => {
@@ -356,26 +420,90 @@ async function chatAction(opts: {
     wss.close();
     httpServer.close();
 
-    // Show final conversation
+    // ── Session Report ──────────────────────────────────────────────────────
     process.stdout.write('\x1b[2J\x1b[H');
+    const P = chalk.hex('#786af4');
+
+    console.log('');
+    console.log(`  ${chalk.bold.hex('#786af4')('⚡🐦 ConvoAI Session Report')}`);
+    console.log(chalk.dim('  ─────────────────────────────────────────'));
     console.log('');
 
     try {
-      const h = await api.history(result.agent_id);
-      const entries = h.contents ?? [];
+      const [h, t] = await Promise.all([
+        api.history(result.agent_id).catch(() => null),
+        api.turns(result.agent_id).catch(() => null),
+      ]);
+
+      const entries = h?.contents ?? [];
+      const turns = t?.turns ?? [];
+
+      // ── Conversation ────────────────────────────────────────────────
       if (entries.length > 0) {
         console.log(chalk.bold('  Conversation:'));
         console.log('');
+        let turnIdx = 0;
         for (const e of entries) {
-          const role = e.role === 'assistant'
-            ? chalk.green('[assistant]')
-            : chalk.cyan('[you]      ');
-          console.log(`  ${role}  ${e.content || chalk.dim('(empty)')}`);
+          if (e.role === 'assistant') {
+            const latency = turnIdx < turns.length ? turns[turnIdx]?.e2e_latency_ms : undefined;
+            const tag = latency ? chalk.dim('[') + fmtLatency(latency) + chalk.dim('] ') : '';
+            const interrupted = turnIdx < turns.length && turns[turnIdx]?.end_reason === 'interrupted';
+            const suffix = interrupted ? chalk.yellow(' ⚡interrupted') : '';
+            console.log(`  ${chalk.green('[assistant]')} ${tag}${e.content || ''}${suffix}`);
+            turnIdx++;
+          } else {
+            console.log(`  ${chalk.cyan('[you]      ')} ${e.content || chalk.dim('(empty)')}`);
+          }
         }
         console.log('');
-        console.log(chalk.dim(`  ${entries.length} messages`));
+      }
+
+      // ── Performance ────────────────────────────────────────────────
+      if (turns.length > 0) {
+        console.log(chalk.bold('  Performance:'));
+        console.log('');
+        console.log(chalk.dim('  #  Turn                E2E       ASR      LLM      TTS'));
+        console.log(chalk.dim('  ── ─────────────────── ──────── ──────── ──────── ────────'));
+
+        for (let i = 0; i < turns.length; i++) {
+          const turn = turns[i];
+          const num = String(i + 1).padStart(2);
+          const type = (turn.type || 'voice').padEnd(18).slice(0, 18);
+          const e2e = turn.e2e_latency_ms ? fmtLatency(turn.e2e_latency_ms).padStart(8) : chalk.dim('     —  ');
+          const asr = turn.segmented_latency_ms?.asr_ms ? fmtLatency(turn.segmented_latency_ms.asr_ms).padStart(8) : chalk.dim('     —  ');
+          const llm = turn.segmented_latency_ms?.llm_ms ? fmtLatency(turn.segmented_latency_ms.llm_ms).padStart(8) : chalk.dim('     —  ');
+          const tts = turn.segmented_latency_ms?.tts_ms ? fmtLatency(turn.segmented_latency_ms.tts_ms).padStart(8) : chalk.dim('     —  ');
+          console.log(`  ${num}  ${type} ${e2e} ${asr} ${llm} ${tts}`);
+        }
+
+        // ── Summary ────────────────────────────────────────────────
+        console.log('');
+        console.log(chalk.dim('  ─────────────────────────────────────────'));
+
+        const e2eValues = turns.map(t => t.e2e_latency_ms).filter((v): v is number => v != null);
+        const llmValues = turns.map(t => t.segmented_latency_ms?.llm_ms).filter((v): v is number => v != null);
+        const interrupted = turns.filter(t => t.end_reason === 'interrupted').length;
+
+        if (e2eValues.length > 0) {
+          const avgE2E = Math.round(e2eValues.reduce((a, b) => a + b, 0) / e2eValues.length);
+          console.log(`  Avg E2E:        ${fmtLatency(avgE2E)}`);
+        }
+        if (llmValues.length > 0) {
+          const avgLLM = Math.round(llmValues.reduce((a, b) => a + b, 0) / llmValues.length);
+          console.log(`  Avg LLM:        ${fmtLatency(avgLLM)}`);
+        }
+        console.log(`  Turns:          ${turns.length}`);
+        console.log(`  Messages:       ${entries.length}`);
+        if (interrupted > 0) {
+          console.log(`  Interrupted:    ${chalk.yellow(String(interrupted))}`);
+        }
+        console.log(`  Response rate:  ${entries.filter(e => e.role === 'assistant').length}/${entries.filter(e => e.role === 'user').length} user turns got replies`);
+      } else {
+        console.log(chalk.dim('  No turn data available.'));
       }
     } catch { /* */ }
+
+    console.log('');
 
     try {
       await withSpinner('Stopping agent...', () => api.stop(result.agent_id));
