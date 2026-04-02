@@ -505,6 +505,23 @@ async function quickstartAction(): Promise<void> {
   });
   const api = new AgentAPI(client);
 
+  // Verify credentials before starting agent
+  try {
+    await withSpinner('Verifying credentials...', () => api.list({ limit: 1 }));
+    printSuccess('Credentials verified.');
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('401')) {
+      printError('Authentication failed (401). Your Customer ID or Customer Secret is incorrect.');
+      const consoleUrl = config.region === 'cn' ? 'https://console.shengwang.cn' : 'https://console.agora.io';
+      printHint(`Check your credentials at ${consoleUrl} → Developer Toolkit → RESTful API`);
+      printHint('Run `convoai config init` to reconfigure.');
+    } else {
+      printError(`Connection failed: ${msg}`);
+    }
+    process.exit(1);
+  }
+
   const channelName = `quickstart-${Date.now().toString(36)}`;
   const agentUid = 0;
   const clientUid = 12345;
