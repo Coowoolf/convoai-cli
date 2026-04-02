@@ -572,6 +572,38 @@ async function quickstartAction(): Promise<void> {
   // ═══════════════════════════════════════════════════════════════════════
   step(5, TOTAL_STEPS, 'Start voice agent');
 
+  // Detect OpenClaw and offer voice integration
+  let hasOpenClaw = false;
+  try {
+    const { execSync: exec } = await import('node:child_process');
+    exec('which openclaw', { stdio: 'ignore' });
+    hasOpenClaw = true;
+  } catch { /* not installed */ }
+
+  if (hasOpenClaw) {
+    const { mode } = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'mode',
+        message: 'Choose voice mode:',
+        choices: [
+          { name: 'ConvoAI Agent — start a new voice AI agent', value: 'convoai' },
+          { name: '🦞 OpenClaw — voice-enable your local OpenClaw assistant', value: 'openclaw' },
+        ],
+      },
+    ]);
+
+    if (mode === 'openclaw') {
+      printSuccess('Launching OpenClaw voice mode...');
+      track('qs_openclaw');
+      const { execSync: exec } = await import('node:child_process');
+      // Hand off to convoai openclaw — exec replaces this process
+      const convoaiBin = process.argv[1];
+      exec(`node ${convoaiBin} openclaw`, { stdio: 'inherit' });
+      process.exit(0);
+    }
+  }
+
   const client = createClient({
     appId: config.app_id!,
     customerId: config.customer_id!,
