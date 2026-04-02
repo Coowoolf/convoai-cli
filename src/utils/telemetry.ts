@@ -48,6 +48,7 @@ export function track(event: string, extra?: { error_type?: string }): void {
   const body = JSON.stringify({
     event,
     session_id: getSessionId(),
+    ts: Date.now(),
     region: process.env.CONVOAI_REGION ?? undefined,
     version,
     ...extra,

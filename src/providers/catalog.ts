@@ -114,7 +114,9 @@ export interface TTSProvider {
   vendor: string;
   requiresKey: boolean;
   requiresRegion?: boolean;
+  requiresGroupId?: boolean;
   defaultVoice?: string;
+  defaultParams?: Record<string, unknown>;
   beta?: boolean;
   note?: string;
 }
@@ -138,6 +140,13 @@ export const TTS_PROVIDERS: TTSProvider[] = [
     name: 'MiniMax',
     vendor: 'minimax',
     requiresKey: true,
+    requiresGroupId: true,
+    note: 'Requires API Key + Group ID from minimax.chat',
+    defaultParams: {
+      model: 'speech-02-turbo',
+      voice_setting: { voice_id: 'English_captivating_female1' },
+      url: 'wss://api-uw.minimax.io/ws/v1/t2a_v2',
+    },
   },
   {
     name: 'OpenAI TTS',

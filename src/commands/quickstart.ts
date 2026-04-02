@@ -384,7 +384,7 @@ async function quickstartAction(): Promise<void> {
       },
     ]);
 
-    const ttsParams: Record<string, string> = { key: ttsKey };
+    const ttsParams: Record<string, unknown> = { key: ttsKey };
 
     // Microsoft-specific: region + voice name
     if (ttsVendor === 'microsoft') {
@@ -406,6 +406,25 @@ async function quickstartAction(): Promise<void> {
       ]);
       ttsParams.region = msAnswers.region;
       ttsParams.voice_name = msAnswers.voiceName;
+    }
+
+    // MiniMax-specific: group_id + auto-fill model/voice/url
+    if (selectedTts.requiresGroupId) {
+      const { groupId } = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'groupId',
+          message: 'Group ID:',
+          validate: (v: string) => v.trim().length > 0 || 'Required — find it at minimax.chat console',
+        },
+      ]);
+      ttsParams.group_id = groupId;
+      // Auto-fill sensible defaults so developer doesn't have to
+      if (selectedTts.defaultParams) {
+        for (const [k, v] of Object.entries(selectedTts.defaultParams)) {
+          ttsParams[k] = v;
+        }
+      }
     }
 
     profile.tts = {
