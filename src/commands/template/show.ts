@@ -57,7 +57,9 @@ function showAction(name: string, opts: ShowOptions): void {
     if (props.llm.style) pairs.push(['LLM Style', props.llm.style]);
     if (props.llm.greeting_message) pairs.push(['Greeting', props.llm.greeting_message]);
     if (props.llm.system_messages?.length) {
-      pairs.push(['System Message', props.llm.system_messages[0].content]);
+      const firstMsg = props.llm.system_messages[0];
+      const content = (firstMsg.content as string) ?? '';
+      pairs.push(['System Message', content]);
     }
     if (props.llm.max_history !== undefined) {
       pairs.push(['Max History', String(props.llm.max_history)]);

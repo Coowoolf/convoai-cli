@@ -123,7 +123,9 @@ async function joinAction(opts: {
         : { ...config.tts, ...presetProps?.tts, params: { ...config.tts?.params, ...presetProps?.tts?.params } },
       asr: opts.asr
         ? { ...config.asr, vendor: opts.asr, params: { ...config.asr?.params } }
-        : { ...config.asr, ...presetProps?.asr, params: { ...config.asr?.params, ...presetProps?.asr?.params } },
+        : config.asr?.vendor
+          ? config.asr
+          : { vendor: 'ares', language: 'zh-CN' },
     },
   };
 

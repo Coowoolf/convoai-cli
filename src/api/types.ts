@@ -48,7 +48,8 @@ export interface LLMConfig {
   vendor?: string;
   style?: 'openai' | 'gemini' | 'anthropic' | 'dify';
   model?: string;
-  system_messages?: Array<{ role: string; content: string }>;
+  headers?: string;
+  system_messages?: Array<Record<string, unknown>>;
   greeting_message?: string;
   failure_message?: string;
   max_history?: number;

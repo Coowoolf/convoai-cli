@@ -45,6 +45,9 @@ import { registerTemplateUse } from './commands/template/use.js';
 // ─── Token ────────────────────────────────────────────────────────────────
 import { registerToken } from './commands/token.js';
 
+// ─── Quickstart ───────────────────────────────────────────────────────────
+import { registerQuickstart } from './commands/quickstart.js';
+
 // ─── Completion & REPL ─────────────────────────────────────────────────────
 import { registerCompletion } from './commands/completion.js';
 import { registerRepl } from './commands/repl.js';
@@ -154,6 +157,9 @@ export function run(): void {
   registerTemplateShow(template);
   registerTemplateDelete(template);
   registerTemplateUse(template);
+
+  // ── quickstart ──────────────────────────────────────────────────────────
+  registerQuickstart(program);
 
   // ── token ───────────────────────────────────────────────────────────────
   registerToken(program);
