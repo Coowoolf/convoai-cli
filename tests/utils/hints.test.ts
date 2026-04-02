@@ -23,10 +23,17 @@ describe('shortId', () => {
 });
 
 describe('hint functions', () => {
-  it('hintAfterStart includes agent ID', () => {
-    const hint = hintAfterStart('abc123def456');
-    expect(hint).toContain('abc123def456');
+  it('hintAfterStart includes full agent ID (not truncated)', () => {
+    const fullId = 'A42AC43EJ85LE63JP37TJ24MY47RN68K';
+    const hint = hintAfterStart(fullId);
+    expect(hint).toContain(fullId);
     expect(hint).toContain('convoai agent status');
+  });
+
+  it('hintAfterStart includes voice chat hint with channel', () => {
+    const hint = hintAfterStart('A42AC43EJ85LE63JP37TJ24MY47RN68K', 'my-room');
+    expect(hint).toContain('convoai agent join');
+    expect(hint).toContain('my-room');
   });
 
   it('hintAfterStop mentions agent list', () => {
@@ -34,19 +41,21 @@ describe('hint functions', () => {
     expect(hint).toContain('convoai agent list');
   });
 
-  it('hintAfterLogin mentions agent start', () => {
+  it('hintAfterLogin mentions agent join', () => {
     const hint = hintAfterLogin();
-    expect(hint).toContain('convoai agent start');
+    expect(hint).toContain('convoai agent join');
   });
 
-  it('hintAfterList mentions agent status', () => {
+  it('hintAfterList mentions status and join', () => {
     const hint = hintAfterList();
     expect(hint).toContain('convoai agent status');
+    expect(hint).toContain('convoai agent join');
   });
 
-  it('hintAfterHistory includes agent ID and mentions turns', () => {
-    const hint = hintAfterHistory('abc123def456');
-    expect(hint).toContain('abc123def456');
+  it('hintAfterHistory includes full agent ID and mentions turns', () => {
+    const fullId = 'A42AC43EJ85LE63JP37TJ24MY47RN68K';
+    const hint = hintAfterHistory(fullId);
+    expect(hint).toContain(fullId);
     expect(hint).toContain('turns');
   });
 });

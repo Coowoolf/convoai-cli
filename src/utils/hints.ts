@@ -7,22 +7,27 @@ export function shortId(id: string): string {
 
 // ─── Next-Step Hints ────────────────────────────────────────────────────────
 
-export function hintAfterStart(agentId: string): string {
-  return `Run \`convoai agent status ${shortId(agentId)}\` to check status.`;
+export function hintAfterStart(agentId: string, channel?: string): string {
+  const lines: string[] = [];
+  lines.push(`Check status: convoai agent status ${agentId}`);
+  if (channel) {
+    lines.push(`Voice chat:   convoai agent join --channel ${channel}`);
+  }
+  return lines.join('\n      ');
 }
 
 export function hintAfterStop(): string {
-  return 'Run `convoai agent list` to see remaining agents.';
+  return 'Run convoai agent list to see remaining agents.';
 }
 
 export function hintAfterLogin(): string {
-  return 'Run `convoai agent start --channel <name>` to start your first agent.';
+  return 'Start a voice chat: convoai agent join --channel my-room';
 }
 
 export function hintAfterList(): string {
-  return 'Run `convoai agent status <id>` to inspect an agent.';
+  return 'Inspect: convoai agent status <id>  |  Voice chat: convoai agent join -c <channel>';
 }
 
 export function hintAfterHistory(agentId: string): string {
-  return `Run \`convoai agent turns ${shortId(agentId)}\` to view turn-level latency.`;
+  return `View latency: convoai agent turns ${agentId}`;
 }

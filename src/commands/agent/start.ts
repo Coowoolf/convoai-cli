@@ -266,7 +266,7 @@ export function registerAgentStart(program: Command): void {
           ['Channel', channel],
           ['Created', formatTimestamp(result.create_ts)],
         ]);
-        printHint(hintAfterStart(result.agent_id));
+        printHint(hintAfterStart(result.agent_id, channel));
       } catch (error) {
         handleError(error, { json: opts.json });
       }
