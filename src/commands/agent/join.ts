@@ -16,6 +16,19 @@ import { printKeyValue } from '../../ui/table.js';
 import { handleError } from '../../utils/errors.js';
 import { shortId } from '../../utils/hints.js';
 
+// ─── Greeting by Language ──────────────────────────────────────────────────
+
+function getGreetingByLang(language: string): string {
+  const greetings: Record<string, string> = {
+    'zh-CN': '你好，我是声网 ConvoAI 语音助手，有什么可以帮你的吗？',
+    'zh-HK': '你好，我是聲網 ConvoAI 語音助手，有什麼可以幫你的嗎？',
+    'zh-TW': '你好，我是聲網 ConvoAI 語音助手，有什麼可以幫你的嗎？',
+    'ja-JP': 'こんにちは、Agora ConvoAI 音声アシスタントです。何かお手伝いできますか？',
+    'ko-KR': '안녕하세요, Agora ConvoAI 음성 어시스턴트입니다. 무엇을 도와드릴까요?',
+  };
+  return greetings[language] ?? 'Hi, I\'m your Agora ConvoAI voice assistant. How can I help you?';
+}
+
 // ─── Locate HTML Client ───────────────────────────────────────────────────
 
 const __filename = fileURLToPath(import.meta.url);
@@ -107,7 +120,13 @@ async function joinAction(opts: {
   };
   if (opts.model) llm.model = opts.model;
   if (opts.systemMessage) llm.system_messages = [{ role: 'system', content: opts.systemMessage }];
-  if (opts.greeting) llm.greeting_message = opts.greeting;
+  // Auto-greeting based on ASR language if not manually set
+  if (opts.greeting) {
+    llm.greeting_message = opts.greeting;
+  } else {
+    const asrLang = config.asr?.language ?? 'en-US';
+    llm.greeting_message = getGreetingByLang(asrLang);
+  }
 
   const request: StartAgentRequest = {
     name: `join-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,

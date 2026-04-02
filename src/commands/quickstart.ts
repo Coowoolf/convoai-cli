@@ -47,6 +47,34 @@ export function registerQuickstart(program: Command): void {
     });
 }
 
+// ─── Greeting by Language ──────────────────────────────────────────────────
+
+const GREETINGS: Record<string, string> = {
+  'zh-CN': '你好，我是声网 ConvoAI 语音助手，有什么可以帮你的吗？',
+  'zh-HK': '你好，我是聲網 ConvoAI 語音助手，有什麼可以幫你的嗎？',
+  'zh-TW': '你好，我是聲網 ConvoAI 語音助手，有什麼可以幫你的嗎？',
+  'en-US': 'Hi, I\'m your Agora ConvoAI voice assistant. How can I help you?',
+  'en-IN': 'Hi, I\'m your Agora ConvoAI voice assistant. How can I help you?',
+  'ja-JP': 'こんにちは、Agora ConvoAI 音声アシスタントです。何かお手伝いできますか？',
+  'ko-KR': '안녕하세요, Agora ConvoAI 음성 어시스턴트입니다. 무엇을 도와드릴까요?',
+  'fr-FR': 'Bonjour, je suis votre assistant vocal Agora ConvoAI. Comment puis-je vous aider ?',
+  'de-DE': 'Hallo, ich bin Ihr Agora ConvoAI Sprachassistent. Wie kann ich Ihnen helfen?',
+  'es-ES': 'Hola, soy tu asistente de voz Agora ConvoAI. ¿En qué puedo ayudarte?',
+  'pt-PT': 'Olá, sou o seu assistente de voz Agora ConvoAI. Como posso ajudar?',
+  'ru-RU': 'Здравствуйте, я ваш голосовой ассистент Agora ConvoAI. Чем могу помочь?',
+  'hi-IN': 'नमस्ते, मैं आपका Agora ConvoAI वॉइस असिस्टेंट हूँ। मैं आपकी कैसे मदद कर सकता हूँ?',
+  'ar-SA': 'مرحبًا، أنا مساعدك الصوتي Agora ConvoAI. كيف يمكنني مساعدتك؟',
+  'th-TH': 'สวัสดีค่ะ ฉันคือผู้ช่วยเสียง Agora ConvoAI ช่วยอะไรได้บ้างคะ?',
+  'vi-VN': 'Xin chào, tôi là trợ lý giọng nói Agora ConvoAI. Tôi có thể giúp gì cho bạn?',
+  'id-ID': 'Halo, saya asisten suara Agora ConvoAI. Ada yang bisa saya bantu?',
+  'tr-TR': 'Merhaba, ben Agora ConvoAI sesli asistanınızım. Size nasıl yardımcı olabilirim?',
+  'it-IT': 'Ciao, sono il tuo assistente vocale Agora ConvoAI. Come posso aiutarti?',
+};
+
+function getGreeting(language: string): string {
+  return GREETINGS[language] ?? GREETINGS['en-US'];
+}
+
 // ─── Step Helpers ──────────────────────────────────────────────────────────
 
 function banner(): void {
@@ -489,7 +517,16 @@ async function quickstartAction(): Promise<void> {
     process.exit(1);
   }
 
+  // Auto-generate greeting based on ASR language
+  const asrLang = profile.asr?.language ?? 'en-US';
+  const greeting = getGreeting(asrLang);
+
   // Build request from config
+  const llmWithGreeting: Record<string, unknown> = { ...profile.llm };
+  if (greeting) {
+    llmWithGreeting.greeting_message = greeting;
+  }
+
   const request: StartAgentRequest = {
     name: `qs-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     properties: {
@@ -498,7 +535,7 @@ async function quickstartAction(): Promise<void> {
       agent_rtc_uid: String(agentUid),
       remote_rtc_uids: ['*'],
       idle_timeout: 600,
-      llm: profile.llm,
+      llm: llmWithGreeting as typeof profile.llm,
       tts: profile.tts,
       asr: profile.asr,
       parameters: {
