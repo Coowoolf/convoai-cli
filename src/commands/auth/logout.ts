@@ -1,5 +1,4 @@
 import { Command } from 'commander';
-import inquirer from 'inquirer';
 import { loadConfig, saveConfig } from '../../config/manager.js';
 import { printSuccess, printError } from '../../ui/output.js';
 import { handleError } from '../../utils/errors.js';
@@ -30,6 +29,7 @@ interface LogoutOptions {
 }
 
 async function logoutAction(opts: LogoutOptions): Promise<void> {
+  const { default: inquirer } = await import('inquirer');
   const config = loadConfig();
 
   if (opts.profile) {

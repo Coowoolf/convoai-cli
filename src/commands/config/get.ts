@@ -57,13 +57,16 @@ function getAction(key: string, opts: { profile?: string }): void {
     // If the key starts with llm/tts/asr, also check active profile
     const topSegment = key.split('.')[0];
     if (['llm', 'tts', 'asr'].includes(topSegment)) {
-      const profile = getActiveProfile() as unknown as Record<string, unknown>;
-      const profileValue = getNestedValue(profile, key);
-      const rootValue = getNestedValue(source, key);
-      // Profile-level value takes precedence when root is not set
-      if (rootValue === undefined && profileValue !== undefined) {
-        outputValue(profileValue);
-        return;
+      try {
+        const profile = getActiveProfile() as unknown as Record<string, unknown>;
+        const profileValue = getNestedValue(profile, key);
+        const rootValue = getNestedValue(source, key);
+        if (rootValue === undefined && profileValue !== undefined) {
+          outputValue(profileValue);
+          return;
+        }
+      } catch {
+        // Credentials not configured — just fall through to root config
       }
     }
   }

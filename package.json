@@ -24,7 +24,21 @@
     "voice-ai",
     "realtime"
   ],
-  "author": "",
+  "author": "Agora ConvoAI CLI Contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AgoraIO-Community/convoai-cli"
+  },
+  "homepage": "https://github.com/AgoraIO-Community/convoai-cli#readme",
+  "bugs": {
+    "url": "https://github.com/AgoraIO-Community/convoai-cli/issues"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
   "license": "MIT",
   "dependencies": {
     "axios": "^1.7.0",

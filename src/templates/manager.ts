@@ -3,6 +3,16 @@ import { join } from 'node:path';
 import { getConfigDir } from '../config/paths.js';
 import type { AgentProperties } from '../api/types.js';
 
+// ─── Validation ─────────────────────────────────────────────────────────────
+
+export const SAFE_NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
+
+function validateTemplateName(name: string): void {
+  if (!SAFE_NAME_PATTERN.test(name) || name.includes('..')) {
+    throw new Error(`Invalid template name "${name}". Use only letters, numbers, hyphens, and underscores.`);
+  }
+}
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface AgentTemplate {
@@ -50,6 +60,7 @@ export function listTemplates(): AgentTemplate[] {
 
 /** Load a template by name. Returns null if not found or unreadable. */
 export function loadTemplate(name: string): AgentTemplate | null {
+  validateTemplateName(name);
   const filePath = join(getTemplatesDir(), `${name}.json`);
 
   if (!existsSync(filePath)) {
@@ -66,12 +77,14 @@ export function loadTemplate(name: string): AgentTemplate | null {
 
 /** Save a template to disk. Overwrites any existing file with the same name. */
 export function saveTemplate(template: AgentTemplate): void {
+  validateTemplateName(template.name);
   const filePath = join(getTemplatesDir(), `${template.name}.json`);
   writeFileSync(filePath, JSON.stringify(template, null, 2) + '\n', 'utf-8');
 }
 
 /** Delete a template by name. Returns true if the file was deleted, false if it did not exist. */
 export function deleteTemplate(name: string): boolean {
+  validateTemplateName(name);
   const filePath = join(getTemplatesDir(), `${name}.json`);
 
   if (!existsSync(filePath)) {
@@ -84,6 +97,7 @@ export function deleteTemplate(name: string): boolean {
 
 /** Check whether a template with the given name exists on disk. */
 export function templateExists(name: string): boolean {
+  validateTemplateName(name);
   const filePath = join(getTemplatesDir(), `${name}.json`);
   return existsSync(filePath);
 }

@@ -1,5 +1,4 @@
 import { Command } from 'commander';
-import inquirer from 'inquirer';
 import { loadConfig, saveConfig } from '../../config/manager.js';
 import { createClient } from '../../api/client.js';
 import { AgentAPI } from '../../api/agents.js';
@@ -53,6 +52,7 @@ const TTS_VENDORS_NEEDING_KEY = ['microsoft', 'elevenlabs', 'openai', 'minimax']
 // ─── Action ────────────────────────────────────────────────────────────────
 
 async function initAction(): Promise<void> {
+  const { default: inquirer } = await import('inquirer');
   const answers = await inquirer.prompt<InitAnswers>([
     {
       type: 'input',

@@ -61,6 +61,16 @@ const VALID_KEYS = new Set([
   'asr.params.language',
 ]);
 
+// ─── String-only Keys (never coerce to number) ───────────────────────────
+
+const STRING_KEYS = new Set([
+  'app_id', 'customer_id', 'customer_secret', 'base_url', 'region',
+  'default_profile', 'llm.url', 'llm.api_key', 'llm.vendor', 'llm.style',
+  'llm.model', 'llm.greeting_message', 'llm.failure_message',
+  'tts.vendor', 'tts.params.key', 'tts.params.region', 'tts.params.voice_name',
+  'asr.vendor', 'asr.language', 'asr.params.key', 'asr.params.model', 'asr.params.language',
+]);
+
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 function setNestedValue(obj: Record<string, unknown>, keyPath: string, value: string): void {
@@ -76,8 +86,8 @@ function setNestedValue(obj: Record<string, unknown>, keyPath: string, value: st
   }
 
   const leaf = parts[parts.length - 1];
-  // Attempt to coerce obvious numeric / boolean values
-  current[leaf] = coerceValue(value);
+  // Attempt to coerce obvious numeric / boolean values, but keep string keys as strings
+  current[leaf] = STRING_KEYS.has(keyPath) ? value : coerceValue(value);
 }
 
 function coerceValue(value: string): string | number | boolean {

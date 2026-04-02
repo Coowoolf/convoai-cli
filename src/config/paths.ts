@@ -19,7 +19,7 @@ export function getConfigDir(): string {
   const base = xdgHome || join(homedir(), '.config');
   const dir = join(base, CONFIG_DIR_NAME);
 
-  mkdirSync(dir, { recursive: true });
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
   return dir;
 }
 

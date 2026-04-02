@@ -35,7 +35,7 @@ export function saveConfig(config: ConvoAIConfig): void {
   // Ensure the directory exists before writing
   getConfigDir();
   const configPath = getConfigPath();
-  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
 }
 
 // ─── Project Config ─────────────────────────────────────────────────────────
@@ -56,6 +56,25 @@ export function loadProjectConfig(): Partial<ProfileConfig> | null {
   }
 }
 
+// ─── Deep Merge Helper ──────────────────────────────────────────────────────
+
+function deepMerge<T extends Record<string, unknown>>(...sources: (Partial<T> | undefined | null)[]): Partial<T> {
+  const result: Record<string, unknown> = {};
+  for (const source of sources) {
+    if (!source) continue;
+    for (const [key, value] of Object.entries(source)) {
+      if (value !== undefined && value !== null) {
+        if (typeof value === 'object' && !Array.isArray(value) && typeof result[key] === 'object' && result[key] !== null && !Array.isArray(result[key])) {
+          result[key] = deepMerge(result[key] as Record<string, unknown>, value as Record<string, unknown>);
+        } else {
+          result[key] = value;
+        }
+      }
+    }
+  }
+  return result as Partial<T>;
+}
+
 // ─── Profile Resolution ─────────────────────────────────────────────────────
 
 /**
@@ -65,17 +84,26 @@ export function loadProjectConfig(): Partial<ProfileConfig> | null {
 export function getActiveProfile(profileName?: string): ResolvedProfile {
   const config = loadConfig();
 
+  // Environment variables (highest priority after flags)
+  const env = {
+    app_id: process.env.CONVOAI_APP_ID,
+    customer_id: process.env.CONVOAI_CUSTOMER_ID,
+    customer_secret: process.env.CONVOAI_CUSTOMER_SECRET,
+    base_url: process.env.CONVOAI_BASE_URL,
+    region: process.env.CONVOAI_REGION as 'global' | 'cn' | undefined,
+  };
+
   // Determine which profile to use
   const name = profileName ?? config.default_profile;
   const profile: ProfileConfig = (name && config.profiles?.[name]) ? config.profiles[name] : {};
 
-  // Merge: profile fields override base config fields
+  // Merge: env > profile fields > base config fields
   const merged: ProfileConfig = {
-    app_id: profile.app_id ?? config.app_id,
-    customer_id: profile.customer_id ?? config.customer_id,
-    customer_secret: profile.customer_secret ?? config.customer_secret,
-    base_url: profile.base_url ?? config.base_url,
-    region: profile.region ?? config.region,
+    app_id: env.app_id ?? profile.app_id ?? config.app_id,
+    customer_id: env.customer_id ?? profile.customer_id ?? config.customer_id,
+    customer_secret: env.customer_secret ?? profile.customer_secret ?? config.customer_secret,
+    base_url: env.base_url ?? profile.base_url ?? config.base_url,
+    region: env.region ?? profile.region ?? config.region,
     llm: profile.llm,
     tts: profile.tts,
     asr: profile.asr,
@@ -101,18 +129,27 @@ export function getActiveProfile(profileName?: string): ResolvedProfile {
 export function resolveConfig(profileName?: string): ProfileConfig {
   const config = loadConfig();
 
+  // Environment variables (highest priority after flags)
+  const env = {
+    app_id: process.env.CONVOAI_APP_ID,
+    customer_id: process.env.CONVOAI_CUSTOMER_ID,
+    customer_secret: process.env.CONVOAI_CUSTOMER_SECRET,
+    base_url: process.env.CONVOAI_BASE_URL,
+    region: process.env.CONVOAI_REGION as 'global' | 'cn' | undefined,
+  };
+
   const name = profileName ?? config.default_profile;
   const profile: ProfileConfig = (name && config.profiles?.[name]) ? config.profiles[name] : {};
   const project = loadProjectConfig();
 
   return {
-    app_id: project?.app_id ?? profile.app_id ?? config.app_id,
-    customer_id: project?.customer_id ?? profile.customer_id ?? config.customer_id,
-    customer_secret: project?.customer_secret ?? profile.customer_secret ?? config.customer_secret,
-    base_url: project?.base_url ?? profile.base_url ?? config.base_url,
-    region: project?.region ?? profile.region ?? config.region,
-    llm: project?.llm ?? profile.llm,
-    tts: project?.tts ?? profile.tts,
-    asr: project?.asr ?? profile.asr,
+    app_id: env.app_id ?? project?.app_id ?? profile.app_id ?? config.app_id,
+    customer_id: env.customer_id ?? project?.customer_id ?? profile.customer_id ?? config.customer_id,
+    customer_secret: env.customer_secret ?? project?.customer_secret ?? profile.customer_secret ?? config.customer_secret,
+    base_url: env.base_url ?? project?.base_url ?? profile.base_url ?? config.base_url,
+    region: env.region ?? project?.region ?? profile.region ?? config.region,
+    llm: deepMerge(profile.llm, project?.llm),
+    tts: deepMerge(profile.tts, project?.tts),
+    asr: deepMerge(profile.asr, project?.asr),
   };
 }

@@ -31,35 +31,6 @@ export function getCallAPI(profileName?: string): CallAPI {
   return new CallAPI(client);
 }
 
-// ─── Timestamp Formatting ──────────────────────────────────────────────────
+// ─── Timestamp / Duration Formatting (re-exported from shared utils) ──────
 
-/**
- * Format a Unix timestamp (seconds) to a human-readable date string.
- * Returns "—" for falsy values.
- */
-export function formatTimestamp(ts: number | undefined): string {
-  if (!ts) return '—';
-  const date = new Date(ts * 1000);
-  return date.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  });
-}
-
-/**
- * Format a duration in seconds to a human-readable string like "2m 30s".
- */
-export function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remaining = seconds % 60;
-  if (minutes < 60) return remaining > 0 ? `${minutes}m ${remaining}s` : `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMin = minutes % 60;
-  return remainingMin > 0 ? `${hours}h ${remainingMin}m` : `${hours}h`;
-}
+export { formatTimestamp, formatDuration } from '../../utils/format.js';

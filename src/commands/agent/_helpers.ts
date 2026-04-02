@@ -31,45 +31,6 @@ export function getAgentAPI(profileName?: string): AgentAPI {
   return new AgentAPI(client);
 }
 
-// ─── Timestamp Formatting ──────────────────────────────────────────────────
+// ─── Timestamp Formatting (re-exported from shared utils) ─────────────────
 
-/**
- * Format a Unix timestamp (seconds) to a human-readable date string.
- * Returns "—" for falsy values.
- */
-export function formatTimestamp(ts: number | undefined): string {
-  if (!ts) return '—';
-  const date = new Date(ts * 1000);
-  return date.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  });
-}
-
-/**
- * Convert a Unix timestamp (seconds) to a relative time string like
- * "2m ago", "1h ago", "3d ago".  Returns "just now" for very recent times.
- */
-export function relativeTime(ts: number | undefined): string {
-  if (!ts) return '—';
-
-  const nowSec = Math.floor(Date.now() / 1000);
-  const diffSec = nowSec - ts;
-
-  if (diffSec < 0) return 'just now';
-  if (diffSec < 60) return `${diffSec}s ago`;
-
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
-
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-
-  const diffDay = Math.floor(diffHr / 24);
-  return `${diffDay}d ago`;
-}
+export { formatTimestamp, relativeTime } from '../../utils/format.js';

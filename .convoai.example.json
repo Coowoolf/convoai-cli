@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "_comment": "Project-level ConvoAI CLI configuration. Copy to .convoai.json and customize.",
+  "llm": {
+    "model": "gpt-4o-mini",
+    "system_messages": [
+      {
+        "role": "system",
+        "content": "You are a helpful voice assistant for this project."
+      }
+    ]
+  },
+  "tts": {
+    "vendor": "microsoft",
+    "params": {
+      "voice_name": "en-US-AndrewMultilingualNeural"
+    }
+  },
+  "asr": {
+    "vendor": "deepgram",
+    "language": "en-US"
+  }
+}

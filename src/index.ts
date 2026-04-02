@@ -45,7 +45,28 @@ import { registerTemplateUse } from './commands/template/use.js';
 import { registerCompletion } from './commands/completion.js';
 import { registerRepl } from './commands/repl.js';
 
-const VERSION = '1.0.0';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+function getVersion(): string {
+  // Walk up from __dirname until we find package.json
+  let dir = __dirname;
+  for (let i = 0; i < 5; i++) {
+    try {
+      const pkgPath = join(dir, 'package.json');
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+      if (pkg.name === 'convoai') return pkg.version ?? '0.0.0';
+    } catch { /* keep searching */ }
+    dir = dirname(dir);
+  }
+  return '0.0.0';
+}
+
+const VERSION = getVersion();
 
 const BANNER = `
 ${chalk.bold.cyan('convoai')} ${chalk.dim(`v${VERSION}`)}

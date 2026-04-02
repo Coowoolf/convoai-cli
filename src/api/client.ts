@@ -31,6 +31,16 @@ export function resolveBaseUrl(
   return `${base}/${appId}`;
 }
 
+// ─── Retry Helpers ─────────────────────────────────────────────────────────
+
+const RETRY_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 1000;
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // ─── Client Factory ─────────────────────────────────────────────────────────
 
 export function createClient(config: ClientConfig): AxiosInstance {
@@ -48,21 +58,32 @@ export function createClient(config: ClientConfig): AxiosInstance {
     timeout: 30_000,
   });
 
-  // ── Request interceptor: no-op pass-through (extend as needed) ──────────
-  client.interceptors.request.use((req) => req);
-
-  // ── Response interceptor: normalize API errors ──────────────────────────
+  // ── Response interceptor: retry + normalize API errors ───────────────────
   client.interceptors.response.use(
     (res) => res,
-    (error: AxiosError<ApiErrorResponse>) => {
+    async (error: AxiosError<ApiErrorResponse>) => {
+      const config = error.config;
+      const status = error.response?.status;
+
+      // Retry on retryable status codes
+      if (config && status && RETRY_STATUS_CODES.has(status)) {
+        const retryCount = ((config as any).__retryCount ?? 0) as number;
+        if (retryCount < MAX_RETRIES) {
+          (config as any).__retryCount = retryCount + 1;
+          const delay = BASE_DELAY_MS * Math.pow(2, retryCount);
+          await sleep(delay);
+          return client.request(config);
+        }
+      }
+
+      // Format the error
       if (error.response?.data) {
         const { detail, reason } = error.response.data;
-        const status = error.response.status;
         const message = detail || reason || error.message;
         const formatted = new Error(
           `API Error ${status}: ${message}`,
         ) as Error & { status: number; detail?: string; reason?: string };
-        formatted.status = status;
+        formatted.status = status!;
         formatted.detail = detail;
         formatted.reason = reason;
         return Promise.reject(formatted);

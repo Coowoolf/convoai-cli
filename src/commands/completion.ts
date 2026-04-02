@@ -7,13 +7,15 @@ import { handleError } from '../utils/errors.js';
 
 // ─── Completion Data ──────────────────────────────────────────────────────
 
-const TOP_LEVEL_COMMANDS = ['auth', 'agent', 'config', 'preset', 'completion'];
+const TOP_LEVEL_COMMANDS = ['auth', 'agent', 'call', 'config', 'preset', 'template', 'completion', 'repl'];
 
 const SUBCOMMANDS: Record<string, string[]> = {
   agent: ['start', 'stop', 'status', 'list', 'update', 'speak', 'interrupt', 'history', 'turns', 'watch'],
   auth: ['login', 'logout', 'status'],
+  call: ['initiate', 'hangup', 'status'],
   config: ['init', 'set', 'get', 'show', 'path'],
   preset: ['list', 'use'],
+  template: ['save', 'list', 'show', 'delete', 'use'],
   completion: ['bash', 'zsh', 'fish', 'install'],
 };
 
@@ -38,8 +40,10 @@ _convoai_completions() {
     local toplevel="${TOP_LEVEL_COMMANDS.join(' ')}"
     local agent_cmds="${SUBCOMMANDS.agent.join(' ')}"
     local auth_cmds="${SUBCOMMANDS.auth.join(' ')}"
+    local call_cmds="${SUBCOMMANDS.call.join(' ')}"
     local config_cmds="${SUBCOMMANDS.config.join(' ')}"
     local preset_cmds="${SUBCOMMANDS.preset.join(' ')}"
+    local template_cmds="${SUBCOMMANDS.template.join(' ')}"
     local completion_cmds="${SUBCOMMANDS.completion.join(' ')}"
     local agent_start_flags="${AGENT_START_FLAGS.join(' ')}"
     local preset_names="${PRESET_NAMES.join(' ')}"
@@ -50,10 +54,10 @@ _convoai_completions() {
     local i
     for (( i=1; i < cword; i++ )); do
         case "\${words[i]}" in
-            agent|auth|config|preset|completion)
+            agent|auth|call|config|preset|template|completion|repl)
                 cmd="\${words[i]}"
                 ;;
-            start|stop|status|list|update|speak|interrupt|history|turns|watch|login|logout|init|set|get|show|path|use|bash|zsh|fish|install)
+            start|stop|status|list|update|speak|interrupt|history|turns|watch|login|logout|initiate|hangup|init|set|get|show|path|use|save|delete|bash|zsh|fish|install)
                 if [[ -n "$cmd" ]]; then
                     subcmd="\${words[i]}"
                 fi
@@ -90,12 +94,20 @@ _convoai_completions() {
                 COMPREPLY=( $(compgen -W "$auth_cmds" -- "$cur") )
                 return
                 ;;
+            call)
+                COMPREPLY=( $(compgen -W "$call_cmds" -- "$cur") )
+                return
+                ;;
             config)
                 COMPREPLY=( $(compgen -W "$config_cmds" -- "$cur") )
                 return
                 ;;
             preset)
                 COMPREPLY=( $(compgen -W "$preset_cmds" -- "$cur") )
+                return
+                ;;
+            template)
+                COMPREPLY=( $(compgen -W "$template_cmds" -- "$cur") )
                 return
                 ;;
             completion)
@@ -128,9 +140,12 @@ _convoai() {
     toplevel_commands=(
         'auth:Manage authentication credentials'
         'agent:Manage ConvoAI agents'
+        'call:Manage phone calls (telephony)'
         'config:Manage CLI configuration'
         'preset:Manage agent presets'
+        'template:Save and manage agent templates'
         'completion:Generate shell completion scripts'
+        'repl:Start interactive shell'
     )
 
     local -a agent_commands
@@ -154,6 +169,13 @@ _convoai() {
         'status:Show current authentication status'
     )
 
+    local -a call_commands
+    call_commands=(
+        'initiate:Initiate a phone call'
+        'hangup:Hang up a phone call'
+        'status:Show call status'
+    )
+
     local -a config_commands
     config_commands=(
         'init:Initialize configuration'
@@ -167,6 +189,15 @@ _convoai() {
     preset_commands=(
         'list:List available presets'
         'use:Use a preset configuration'
+    )
+
+    local -a template_commands
+    template_commands=(
+        'save:Save an agent template'
+        'list:List saved templates'
+        'show:Show template details'
+        'delete:Delete a template'
+        'use:Use a saved template'
     )
 
     local -a completion_commands
@@ -227,6 +258,16 @@ _convoai() {
                             ;;
                     esac
                     ;;
+                call)
+                    _arguments -C \\
+                        '1:subcommand:->subcmd' \\
+                        '*::arg:->subargs'
+                    case $state in
+                        subcmd)
+                            _describe -t commands 'call subcommand' call_commands
+                            ;;
+                    esac
+                    ;;
                 config)
                     _arguments -C \\
                         '1:subcommand:->subcmd' \\
@@ -252,6 +293,16 @@ _convoai() {
                                         '1:preset name:(${PRESET_NAMES.join(' ')})'
                                     ;;
                             esac
+                            ;;
+                    esac
+                    ;;
+                template)
+                    _arguments -C \\
+                        '1:subcommand:->subcmd' \\
+                        '*::arg:->subargs'
+                    case $state in
+                        subcmd)
+                            _describe -t commands 'template subcommand' template_commands
                             ;;
                     esac
                     ;;
@@ -319,9 +370,12 @@ function generateFishScript(): string {
     '# ── Top-level commands ──────────────────────────────────────',
     'complete -c convoai -n __convoai_no_subcommand -a auth -d "Manage authentication credentials"',
     'complete -c convoai -n __convoai_no_subcommand -a agent -d "Manage ConvoAI agents"',
+    'complete -c convoai -n __convoai_no_subcommand -a call -d "Manage phone calls (telephony)"',
     'complete -c convoai -n __convoai_no_subcommand -a config -d "Manage CLI configuration"',
     'complete -c convoai -n __convoai_no_subcommand -a preset -d "Manage agent presets"',
+    'complete -c convoai -n __convoai_no_subcommand -a template -d "Save and manage agent templates"',
     'complete -c convoai -n __convoai_no_subcommand -a completion -d "Generate shell completion scripts"',
+    'complete -c convoai -n __convoai_no_subcommand -a repl -d "Start interactive shell"',
     '',
     '# ── agent subcommands ──────────────────────────────────────',
     'complete -c convoai -n "__convoai_using_command agent" -a start -d "Start a new ConvoAI agent"',
@@ -334,6 +388,11 @@ function generateFishScript(): string {
     'complete -c convoai -n "__convoai_using_command agent" -a history -d "Show conversation history"',
     'complete -c convoai -n "__convoai_using_command agent" -a turns -d "Show conversation turns"',
     'complete -c convoai -n "__convoai_using_command agent" -a watch -d "Watch agent status in real time"',
+    '',
+    '# ── call subcommands ───────────────────────────────────────',
+    'complete -c convoai -n "__convoai_using_command call" -a initiate -d "Initiate a phone call"',
+    'complete -c convoai -n "__convoai_using_command call" -a hangup -d "Hang up a phone call"',
+    'complete -c convoai -n "__convoai_using_command call" -a status -d "Show call status"',
     '',
     '# ── agent start flags ──────────────────────────────────────',
     'complete -c convoai -n "__convoai_using_subcommand agent start" -l channel -s c -d "RTC channel name" -r',
@@ -356,6 +415,13 @@ function generateFishScript(): string {
     'complete -c convoai -n "__convoai_using_command config" -a get -d "Get a configuration value"',
     'complete -c convoai -n "__convoai_using_command config" -a show -d "Show full configuration"',
     'complete -c convoai -n "__convoai_using_command config" -a path -d "Show config file path"',
+    '',
+    '# ── template subcommands ───────────────────────────────────',
+    'complete -c convoai -n "__convoai_using_command template" -a save -d "Save an agent template"',
+    'complete -c convoai -n "__convoai_using_command template" -a list -d "List saved templates"',
+    'complete -c convoai -n "__convoai_using_command template" -a show -d "Show template details"',
+    'complete -c convoai -n "__convoai_using_command template" -a delete -d "Delete a template"',
+    'complete -c convoai -n "__convoai_using_command template" -a use -d "Use a saved template"',
     '',
     '# ── preset subcommands ─────────────────────────────────────',
     'complete -c convoai -n "__convoai_using_command preset" -a list -d "List available presets"',

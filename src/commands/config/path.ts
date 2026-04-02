@@ -1,14 +1,6 @@
 import { Command } from 'commander';
-import path from 'node:path';
-import os from 'node:os';
+import { getConfigDir, getConfigPath } from '../../config/paths.js';
 import { handleError } from '../../utils/errors.js';
-
-// ─── Constants ─────────────────────────────────────────────────────────────
-
-const CONFIG_DIR = path.join(os.homedir(), '.config', 'convoai');
-const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
-
-// ─── Command Registration ──────────────────────────────────────────────────
 
 export function registerConfigPath(program: Command): void {
   program
@@ -18,9 +10,9 @@ export function registerConfigPath(program: Command): void {
     .action((opts: { dir?: boolean }) => {
       try {
         if (opts.dir) {
-          console.log(CONFIG_DIR);
+          console.log(getConfigDir());
         } else {
-          console.log(CONFIG_FILE);
+          console.log(getConfigPath());
         }
       } catch (error) {
         handleError(error);

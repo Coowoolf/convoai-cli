@@ -1,5 +1,4 @@
 import { Command } from 'commander';
-import inquirer from 'inquirer';
 import { loadConfig, saveConfig } from '../../config/manager.js';
 import { createClient } from '../../api/client.js';
 import { AgentAPI } from '../../api/agents.js';
@@ -45,6 +44,7 @@ interface Credentials {
 }
 
 async function promptCredentials(opts: LoginOptions): Promise<Credentials> {
+  const { default: inquirer } = await import('inquirer');
   const answers = await inquirer.prompt<Credentials>([
     {
       type: 'input',
