@@ -36,6 +36,7 @@
   "files": [
     "dist",
     "bin",
+    "src/web",
     "README.md",
     "LICENSE"
   ],

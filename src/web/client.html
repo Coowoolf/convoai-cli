@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ConvoAI Voice Chat</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+    .card { background: #1a1a1a; border: 1px solid #333; border-radius: 16px; padding: 32px; width: 100%; max-width: 420px; text-align: center; }
+    h1 { font-size: 22px; margin-bottom: 4px; color: #00c8ff; }
+    .channel-name { color: #00ff88; font-size: 18px; font-weight: 600; margin: 8px 0 24px; }
+    .status { font-size: 14px; margin-bottom: 16px; }
+    .status.connected { color: #00ff88; }
+    .status.disconnected { color: #666; }
+    .status.connecting { color: #ffaa00; }
+    .status.error { color: #ff4444; }
+    .pulse { width: 120px; height: 120px; border-radius: 50%; background: radial-gradient(circle, #00c8ff22, transparent); display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; position: relative; }
+    .pulse.active { animation: pulse 1.5s ease-in-out infinite; }
+    .pulse-inner { width: 80px; height: 80px; border-radius: 50%; background: #1a1a1a; border: 3px solid #333; display: flex; align-items: center; justify-content: center; font-size: 32px; }
+    .pulse.active .pulse-inner { border-color: #00c8ff; }
+    @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.15); opacity: 1; } }
+    .volume-bar { height: 6px; background: #222; border-radius: 3px; margin: 0 auto 20px; width: 80%; overflow: hidden; }
+    .volume-fill { height: 100%; background: linear-gradient(90deg, #00c8ff, #00ff88); width: 0%; transition: width 0.1s; border-radius: 3px; }
+    .log { background: #0a0a0a; border: 1px solid #222; border-radius: 8px; padding: 12px; margin-top: 16px; max-height: 160px; overflow-y: auto; font-family: 'SF Mono', Monaco, monospace; font-size: 11px; line-height: 1.6; text-align: left; }
+    .log-entry { color: #555; }
+    .log-entry.info { color: #00c8ff; }
+    .log-entry.ok { color: #00ff88; }
+    .log-entry.err { color: #ff4444; }
+    .log-entry.audio { color: #ffaa00; }
+    .hint { color: #444; font-size: 11px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>ConvoAI Voice Chat</h1>
+    <div class="channel-name" id="channelDisplay">—</div>
+    <div class="pulse" id="pulse"><div class="pulse-inner" id="icon">🎙</div></div>
+    <div class="volume-bar"><div id="vol" class="volume-fill"></div></div>
+    <div class="status connecting" id="status">Connecting...</div>
+    <div class="log" id="log"></div>
+    <p class="hint">Press Ctrl+C in the terminal to stop</p>
+  </div>
+
+  <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.22.0.js"></script>
+  <script>
+    const P = new URLSearchParams(location.search);
+    const appId = P.get('appId');
+    const channel = P.get('channel');
+    const token = P.get('token') || null;
+    const uid = Number(P.get('uid')) || 0;
+
+    document.getElementById('channelDisplay').textContent = channel || '—';
+
+    let client, localTrack, volTimer;
+
+    function log(m, t='') {
+      const el = document.getElementById('log');
+      const d = document.createElement('div');
+      d.className = 'log-entry ' + t;
+      d.textContent = `${new Date().toLocaleTimeString()} ${m}`;
+      el.appendChild(d);
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function setStatus(t, c) {
+      const el = document.getElementById('status');
+      el.textContent = t;
+      el.className = 'status ' + c;
+    }
+
+    async function start() {
+      if (!appId || !channel) {
+        setStatus('Missing appId or channel', 'error');
+        log('Error: appId and channel are required in URL params', 'err');
+        return;
+      }
+
+      try {
+        client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+
+        client.on('user-published', async (user, mediaType) => {
+          await client.subscribe(user, mediaType);
+          if (mediaType === 'audio') {
+            user.audioTrack.play();
+            log('Agent speaking...', 'audio');
+            document.getElementById('pulse').classList.add('active');
+            document.getElementById('icon').textContent = '🔊';
+            if (volTimer) clearInterval(volTimer);
+            volTimer = setInterval(() => {
+              const v = user.audioTrack.getVolumeLevel();
+              document.getElementById('vol').style.width = (v * 100) + '%';
+            }, 100);
+          }
+        });
+
+        client.on('user-unpublished', (user, mediaType) => {
+          if (mediaType === 'audio') {
+            document.getElementById('pulse').classList.remove('active');
+            document.getElementById('icon').textContent = '🎙';
+            document.getElementById('vol').style.width = '0%';
+            log('Agent stopped speaking', 'info');
+          }
+        });
+
+        client.on('user-left', (user) => {
+          log('Agent left the channel', 'info');
+          document.getElementById('pulse').classList.remove('active');
+          document.getElementById('icon').textContent = '👋';
+          setStatus('Agent disconnected', 'disconnected');
+        });
+
+        log('Joining channel: ' + channel, 'info');
+        await client.join(appId, channel, token, uid || null);
+        log('Joined (uid: ' + (uid || 'auto') + ')', 'ok');
+
+        localTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        await client.publish([localTrack]);
+        log('Microphone live — speak now!', 'ok');
+        setStatus('Connected — speak to the agent!', 'connected');
+
+      } catch (err) {
+        log('Error: ' + err.message, 'err');
+        setStatus('Failed: ' + err.message, 'error');
+      }
+    }
+
+    window.addEventListener('beforeunload', async () => {
+      if (localTrack) { localTrack.stop(); localTrack.close(); }
+      if (client) await client.leave();
+    });
+
+    start();
+  </script>
+</body>
+</html>
