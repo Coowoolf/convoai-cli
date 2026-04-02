@@ -271,6 +271,7 @@ export interface ApiErrorResponse {
 
 export interface ConvoAIConfig {
   app_id?: string;
+  app_certificate?: string;
   customer_id?: string;
   customer_secret?: string;
   base_url?: string;

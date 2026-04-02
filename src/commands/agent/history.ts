@@ -46,17 +46,19 @@ async function historyAction(
     api.history(agentId),
   );
 
+  const allContents = data.contents ?? [];
+
   if (opts.json) {
     const output = opts.limit
-      ? { ...data, contents: data.contents.slice(-opts.limit) }
+      ? { ...data, contents: allContents.slice(-opts.limit) }
       : data;
     console.log(JSON.stringify(output, null, 2));
     return;
   }
 
   const entries = opts.limit
-    ? data.contents.slice(-opts.limit)
-    : data.contents;
+    ? allContents.slice(-opts.limit)
+    : allContents;
 
   // ── Header ──────────────────────────────────────────────────────────────
   console.log();
@@ -76,7 +78,7 @@ async function historyAction(
 
   // ── Footer ──────────────────────────────────────────────────────────────
   console.log();
-  const totalCount = data.contents.length;
+  const totalCount = allContents.length;
   const shownCount = entries.length;
   if (opts.limit && totalCount > shownCount) {
     console.log(dim(`Showing ${shownCount} of ${totalCount} entries.`));

@@ -47,7 +47,8 @@ async function turnsAction(
   );
 
   const limit = opts.limit ?? 20;
-  const turns = data.turns.slice(-limit);
+  const allTurns = data.turns ?? [];
+  const turns = allTurns.slice(-limit);
 
   if (opts.json) {
     console.log(JSON.stringify({ ...data, turns }, null, 2));
@@ -78,7 +79,7 @@ async function turnsAction(
   console.log();
   printAverages(turns);
 
-  const totalCount = data.turns.length;
+  const totalCount = allTurns.length;
   if (totalCount > turns.length) {
     console.log(dim(`\nShowing ${turns.length} of ${totalCount} turns.`));
   }

@@ -41,6 +41,9 @@ import { registerTemplateShow } from './commands/template/show.js';
 import { registerTemplateDelete } from './commands/template/delete.js';
 import { registerTemplateUse } from './commands/template/use.js';
 
+// ─── Token ────────────────────────────────────────────────────────────────
+import { registerToken } from './commands/token.js';
+
 // ─── Completion & REPL ─────────────────────────────────────────────────────
 import { registerCompletion } from './commands/completion.js';
 import { registerRepl } from './commands/repl.js';
@@ -149,6 +152,9 @@ export function run(): void {
   registerTemplateShow(template);
   registerTemplateDelete(template);
   registerTemplateUse(template);
+
+  // ── token ───────────────────────────────────────────────────────────────
+  registerToken(program);
 
   // ── completion ──────────────────────────────────────────────────────────
   registerCompletion(program);

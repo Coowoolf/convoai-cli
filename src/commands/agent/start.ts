@@ -3,6 +3,7 @@ import type { StartAgentRequest, AgentProperties, LLMConfig } from '../../api/ty
 import { getAgentAPI, formatTimestamp } from './_helpers.js';
 import { resolveConfig } from '../../config/manager.js';
 import { getPreset } from '../../presets/defaults.js';
+import { generateRtcToken } from '../../utils/token.js';
 import { withSpinner } from '../../ui/spinner.js';
 import { printKeyValue } from '../../ui/table.js';
 import { printSuccess, printError, printHint } from '../../ui/output.js';
@@ -98,6 +99,7 @@ function buildRequest(opts: {
   uid?: string;
   remoteUids?: string;
   idleTimeout?: string;
+  token?: string;
   profile?: string;
 }): StartAgentRequest {
   const config = resolveConfig(opts.profile);
@@ -106,9 +108,13 @@ function buildRequest(opts: {
   const presetProps = opts.preset ? getPreset(opts.preset) : undefined;
 
   // Build LLM config by layering: config defaults -> preset -> CLI flags
+  // Deep merge so config api_key/url are preserved when preset sets vendor/model
   const llm: LLMConfig = {
     ...config.llm,
     ...presetProps?.llm,
+    // Preserve config credentials that presets don't provide
+    api_key: config.llm?.api_key ?? presetProps?.llm?.api_key,
+    url: config.llm?.url ?? presetProps?.llm?.url,
   };
 
   if (opts.model) {
@@ -131,7 +137,8 @@ function buildRequest(opts: {
   const properties: AgentProperties = {
     ...presetProps,
     channel: opts.channel,
-    agent_rtc_uid: opts.uid ?? presetProps?.agent_rtc_uid ?? 'Agent',
+    token: opts.token,
+    agent_rtc_uid: opts.uid ?? presetProps?.agent_rtc_uid ?? '0',
     remote_rtc_uids: opts.remoteUids
       ? opts.remoteUids.split(',').map((u) => u.trim())
       : presetProps?.remote_rtc_uids ?? ['*'],
@@ -141,32 +148,32 @@ function buildRequest(opts: {
     llm: Object.keys(llm).length > 0 ? llm : undefined,
   };
 
-  // Apply TTS from CLI flag, preset, or config
+  // Apply TTS: deep merge config + preset + CLI flag (config keys preserved)
   if (opts.tts) {
-    properties.tts = { vendor: opts.tts };
-  } else if (presetProps?.tts) {
-    properties.tts = presetProps.tts;
-  } else if (config.tts) {
-    properties.tts = config.tts;
+    properties.tts = { ...config.tts, vendor: opts.tts, params: { ...config.tts?.params } };
+  } else {
+    properties.tts = {
+      ...config.tts,
+      ...presetProps?.tts,
+      params: { ...config.tts?.params, ...presetProps?.tts?.params },
+    };
   }
 
-  // Apply ASR from CLI flag, preset, or config
+  // Apply ASR: deep merge config + preset + CLI flag
   if (opts.asr) {
-    properties.asr = { vendor: opts.asr };
-  } else if (presetProps?.asr) {
-    properties.asr = presetProps.asr;
-  } else if (config.asr) {
-    properties.asr = config.asr;
+    properties.asr = { ...config.asr, vendor: opts.asr, params: { ...config.asr?.params } };
+  } else {
+    properties.asr = {
+      ...config.asr,
+      ...presetProps?.asr,
+      params: { ...config.asr?.params, ...presetProps?.asr?.params },
+    };
   }
 
   const request: StartAgentRequest = {
     name: opts.name ?? generateAgentName(),
     properties,
   };
-
-  if (opts.preset) {
-    request.preset = opts.preset;
-  }
 
   return request;
 }
@@ -187,9 +194,10 @@ export function registerAgentStart(program: Command): void {
     .option('--asr <vendor>', 'ASR vendor')
     .option('--system-message <msg>', 'System prompt for the LLM')
     .option('--greeting <msg>', 'Greeting message spoken on join')
-    .option('--uid <uid>', 'Agent RTC UID (default: "Agent")')
+    .option('--uid <uid>', 'Agent RTC UID (default: "0" for random assignment)')
     .option('--remote-uids <uids>', 'Comma-separated remote UIDs (default: "*")')
     .option('--idle-timeout <seconds>', 'Idle timeout in seconds (default: 30)')
+    .option('--token <token>', 'RTC token (auto-generated if app_certificate is configured)')
     .option('--profile <name>', 'Config profile to use')
     .option('--json', 'Output result as JSON')
     .option('--dry-run', 'Show the request payload without sending it')
@@ -212,6 +220,13 @@ export function registerAgentStart(program: Command): void {
           process.exit(1);
         }
 
+        // Auto-generate RTC token if not provided and certificate is configured
+        let token: string | undefined = opts.token;
+        if (!token) {
+          const uid = opts.uid ? parseInt(opts.uid, 10) : 0;
+          token = await generateRtcToken(channel, uid);
+        }
+
         const request = buildRequest({
           channel,
           name: opts.name,
@@ -226,6 +241,7 @@ export function registerAgentStart(program: Command): void {
           uid: opts.uid,
           remoteUids: opts.remoteUids,
           idleTimeout: opts.idleTimeout,
+          token,
           profile: opts.profile,
         });
 

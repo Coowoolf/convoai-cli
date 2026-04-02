@@ -55,7 +55,7 @@ export function createClient(config: ClientConfig): AxiosInstance {
       'Content-Type': 'application/json',
       Authorization: `Basic ${credentials}`,
     },
-    timeout: 30_000,
+    timeout: 60_000,
   });
 
   // ── Response interceptor: retry + normalize API errors ───────────────────

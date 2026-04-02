@@ -47,6 +47,7 @@ export const ProfileConfigSchema = z.object({
 
 export const ConvoAIConfigSchema = z.object({
   app_id: z.string().optional(),
+  app_certificate: z.string().optional(),
   customer_id: z.string().optional(),
   customer_secret: z.string().optional(),
   base_url: z.string().optional(),

@@ -28,6 +28,7 @@ export function registerConfigInit(program: Command): void {
 
 interface InitAnswers {
   appId: string;
+  appCertificate: string;
   customerId: string;
   customerSecret: string;
   region: 'global' | 'cn';
@@ -72,6 +73,13 @@ async function initAction(): Promise<void> {
       message: 'Customer Secret:',
       mask: '*',
       validate: (v: string) => (v.trim().length > 0 ? true : 'Customer Secret is required'),
+    },
+    {
+      type: 'password',
+      name: 'appCertificate',
+      message: 'App Certificate (for RTC token generation):',
+      mask: '*',
+      validate: (v: string) => (v.trim().length > 0 ? true : 'App Certificate is required for agent RTC connections'),
     },
     {
       type: 'list',
@@ -132,6 +140,7 @@ async function initAction(): Promise<void> {
   // Build config object
   const config = loadConfig();
   config.app_id = answers.appId;
+  config.app_certificate = answers.appCertificate;
   config.customer_id = answers.customerId;
   config.customer_secret = answers.customerSecret;
   config.region = answers.region;
@@ -156,6 +165,7 @@ async function initAction(): Promise<void> {
   };
 
   config.profiles['default'] = defaultProfile;
+  config.default_profile = 'default';
 
   saveConfig(config);
 

@@ -75,14 +75,14 @@ describe('createClient', () => {
     expect(client.defaults.headers['Content-Type']).toBe('application/json');
   });
 
-  it('sets 30s timeout', () => {
+  it('sets 60s timeout', () => {
     const client = createClient({
       appId: 'app',
       customerId: 'id',
       customerSecret: 'secret',
     });
 
-    expect(client.defaults.timeout).toBe(30_000);
+    expect(client.defaults.timeout).toBe(60_000);
   });
 
   it('uses CN region URL when specified', () => {
