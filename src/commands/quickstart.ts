@@ -14,6 +14,7 @@ import { printSuccess, printError, printHint } from '../ui/output.js';
 import { printKeyValue, printTable } from '../ui/table.js';
 import { colorStatus } from '../ui/colors.js';
 import { handleError } from '../utils/errors.js';
+import { track } from '../utils/telemetry.js';
 import { formatTimestamp } from '../utils/format.js';
 import { LLM_PROVIDERS, TTS_PROVIDERS, ASR_PROVIDERS, ASR_LANGUAGES } from '../providers/catalog.js';
 import type { StartAgentRequest, ConvoAIConfig, LLMConfig } from '../api/types.js';
@@ -109,6 +110,7 @@ async function quickstartAction(): Promise<void> {
   const { default: inquirer } = await import('inquirer');
 
   banner();
+  track('qs_start');
 
   const TOTAL_STEPS = 6;
   let config = loadConfig();
@@ -184,8 +186,10 @@ async function quickstartAction(): Promise<void> {
     config.region = platform;
     saveConfig(config);
     printSuccess('Credentials saved.');
+    track('qs_step1');
   } else {
     printSuccess(`Already configured (App ID: ${config.app_id!.slice(0, 8)}...)`);
+    track('qs_step1');
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -333,9 +337,11 @@ async function quickstartAction(): Promise<void> {
     config.profiles['default'] = profile;
     saveConfig(config);
     printSuccess(`LLM configured: ${llmModel} via ${selectedLlm.name}`);
+    track('qs_step2');
   } else {
     const model = profile.llm?.params?.model ?? profile.llm?.model ?? 'unknown';
     printSuccess(`LLM already configured: ${model}`);
+    track('qs_step2');
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -409,8 +415,10 @@ async function quickstartAction(): Promise<void> {
     config.profiles['default'] = profile;
     saveConfig(config);
     printSuccess(`TTS configured: ${selectedTts.name}`);
+    track('qs_step3');
   } else {
     printSuccess(`TTS already configured: ${profile.tts!.vendor}`);
+    track('qs_step3');
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -488,8 +496,10 @@ async function quickstartAction(): Promise<void> {
     config.profiles['default'] = profile;
     saveConfig(config);
     printSuccess(`ASR configured: ${asrVendor} (${asrLanguage})`);
+    track('qs_step4');
   } else {
     printSuccess(`ASR already configured: ${profile.asr!.vendor} (${profile.asr!.language ?? 'default'})`);
+    track('qs_step4');
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -561,9 +571,16 @@ async function quickstartAction(): Promise<void> {
     },
   };
 
-  const result = await withSpinner('Starting voice agent...', () => api.start(request));
+  let result;
+  try {
+    result = await withSpinner('Starting voice agent...', () => api.start(request));
+  } catch (err) {
+    track('error', { error_type: 'agent_start_failed' });
+    throw err;
+  }
 
   printSuccess('Agent is live!');
+  track('qs_step5_agent');
   printKeyValue([
     ['Agent ID', result.agent_id],
     ['Channel', channelName],
@@ -594,6 +611,7 @@ async function quickstartAction(): Promise<void> {
     const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
     execSync(`${cmd} "${url}"`);
   } catch { /* */ }
+  track('qs_step5_voice');
 
   console.log('');
   console.log(chalk.green.bold('  🎙  Voice chat is live!'));
@@ -682,6 +700,8 @@ async function quickstartAction(): Promise<void> {
       ['Stopped', formatTimestamp(status.stop_ts)],
     ]);
   } catch { /* */ }
+
+  track('qs_step6');
 
   // Stop the agent
   try {

@@ -166,6 +166,13 @@ install_convoai() {
 
 main() {
   banner
+
+  # Anonymous install tracking
+  curl -sS -X POST https://convobench.org/api/t \
+    -H 'Content-Type: application/json' \
+    -d '{"event":"install"}' \
+    --max-time 2 &>/dev/null &
+
   ensure_node
   install_convoai
 

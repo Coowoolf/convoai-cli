@@ -9,6 +9,7 @@ import { printKeyValue } from '../../ui/table.js';
 import { printSuccess, printError, printHint } from '../../ui/output.js';
 import { handleError } from '../../utils/errors.js';
 import { hintAfterStart } from '../../utils/hints.js';
+import { track } from '../../utils/telemetry.js';
 
 // ─── Name Generation ───────────────────────────────────────────────────────
 
@@ -260,6 +261,7 @@ export function registerAgentStart(program: Command): void {
         }
 
         printSuccess(`Agent started successfully.`);
+        track('agent_start');
         printKeyValue([
           ['Agent ID', result.agent_id],
           ['Status', result.status],

@@ -4,6 +4,7 @@ import { withSpinner } from '../../ui/spinner.js';
 import { printSuccess, printError, printHint } from '../../ui/output.js';
 import { handleError } from '../../utils/errors.js';
 import { hintAfterStop, shortId } from '../../utils/hints.js';
+import { track } from '../../utils/telemetry.js';
 
 // ─── Confirmation Prompt ───────────────────────────────────────────────────
 
@@ -124,6 +125,7 @@ export function registerAgentStop(program: Command): void {
         }
 
         printSuccess(`Agent ${shortId(agentId)} stopped.`);
+        track('agent_stop');
         printHint(hintAfterStop());
       } catch (error) {
         handleError(error, { json: opts.json });

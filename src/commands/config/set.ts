@@ -35,6 +35,7 @@ const VALID_KEYS = new Set([
   'region',
   'default_profile',
   'app_certificate',
+  'telemetry',
 
   // LLM
   'llm.url',

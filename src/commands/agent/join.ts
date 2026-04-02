@@ -15,6 +15,7 @@ import { printSuccess, printError, printHint } from '../../ui/output.js';
 import { printKeyValue } from '../../ui/table.js';
 import { handleError } from '../../utils/errors.js';
 import { shortId } from '../../utils/hints.js';
+import { track } from '../../utils/telemetry.js';
 
 // ─── Greeting by Language ──────────────────────────────────────────────────
 
@@ -152,6 +153,7 @@ async function joinAction(opts: {
   const result = await withSpinner('Starting agent...', () => api.start(request));
 
   printSuccess('Agent started.');
+  track('agent_join');
   printKeyValue([
     ['Agent ID', result.agent_id],
     ['Channel', opts.channel],
