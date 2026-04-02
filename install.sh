@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ─────────────────────────────────────────────────────────────
 # convoai installer — one-liner install for Agora ConvoAI CLI
-# curl -fsSL https://convoai.dev/install.sh | bash
+# curl -fsSL https://convobench.org/install.sh | bash
 # ─────────────────────────────────────────────────────────────
 
 # ── Colors & symbols ─────────────────────────────────────────
