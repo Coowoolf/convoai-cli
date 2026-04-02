@@ -79,16 +79,21 @@ function getGreeting(language: string): string {
 // ─── Step Helpers ──────────────────────────────────────────────────────────
 
 function banner(): void {
+  const P = chalk.hex('#786af4');
+  const B = chalk.hex('#5b8eff');
+  const W = chalk.hex('#c8c8ff');
   console.log('');
-  const line = chalk.blueBright('  ─────────────────────────────────────────');
-  console.log(line);
+  console.log(`  ${P('   ▗▄▄▄▄▄▄▄▄▄▄▄▄▄▖')}`);
+  console.log(`  ${P('   ▐')}${B('              ')}${P('▌')}`);
+  let ver = 'unknown';
+  try { ver = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')).version ?? ver; } catch {}
+  try { ver = JSON.parse(readFileSync(join(__dirname, '..', '..', 'package.json'), 'utf-8')).version ?? ver; } catch {}
+  console.log(`  ${P('   ▐')}${B('  ')}${W('██')}${B('    ')}${W('██')}${B('   ')}${P('▌')}    ${chalk.bold.hex('#786af4')('ConvoAI CLI')} v${ver}`);
+  console.log(`  ${P('   ▐')}${B('    ')}${W('▀▀▀▀')}${B('    ')}${P('▌')}    Voice AI in 2 minutes`);
+  console.log(`  ${P('   ▐')}${B('              ')}${P('▌')}    ${chalk.dim('Powered by Agora ⚡🐦')}`);
+  console.log(`  ${P('   ▝▀▀▀▀▀▀▀█▀▀▀▀▘')}`);
+  console.log(`  ${P('            ▀▚')}`);
   console.log('');
-  console.log(chalk.blueBright.bold('   ⚡🐦  C O N V O A I'));
-  console.log('');
-  console.log(chalk.white('   Voice AI in 2 minutes'));
-  console.log(chalk.dim('   Powered by Agora ConvoAI Engine'));
-  console.log('');
-  console.log(line);
 }
 
 function step(n: number, total: number, label: string): void {
