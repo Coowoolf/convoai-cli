@@ -34,7 +34,7 @@ export function registerOpenClaw(program: Command): void {
 
 // ─── OpenClaw → OpenAI-compatible Bridge ────────────────────────────────────
 
-function createOpenClawBridge(agentId: string, port: number): Promise<ReturnType<typeof createServer>> {
+function createOpenClawBridge(agentId: string, port: number, onRequest?: () => void): Promise<ReturnType<typeof createServer>> {
   return new Promise((resolve, reject) => {
     const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
       // CORS
@@ -91,7 +91,10 @@ function createOpenClawBridge(agentId: string, port: number): Promise<ReturnType
           choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }],
         })}\n\n`);
 
-        // ── A. Call OpenClaw ASYNC ───────────────────────────────────
+        // ── A. Notify main process to send filler via speak API ─────
+        if (userText.length > 1 && onRequest) onRequest();
+
+        // ── B. Call OpenClaw ASYNC ───────────────────────────────────
         const { execFile } = await import('node:child_process');
 
         const replyText = await new Promise<string>((resolve) => {
@@ -182,11 +185,29 @@ async function openclawAction(opts: {
   }
 
   // ── 3. Start the OpenClaw → OpenAI bridge ────────────────────────────────
+  // These get set after agent starts, so bridge callback can use them
+  let fillerApi: AgentAPI | null = null;
+  let fillerAgentId: string | null = null;
   const bridgePort = parseInt(opts.port, 10);
 
   const bridge = await withSpinner(
     `Starting OpenClaw bridge (port ${bridgePort})...`,
-    () => createOpenClawBridge(opts.agent, bridgePort),
+    () => createOpenClawBridge(opts.agent, bridgePort, () => {
+      // Fire-and-forget: send random filler via speak API
+      if (fillerApi && fillerAgentId) {
+        const fillers = [
+          '好的，让我想一想。',
+          '收到了，我来看一看。',
+          '嗯，让我处理一下。',
+          '好，我来帮你查一下。',
+          '收到，稍等我一下。',
+          '好的，马上回复你。',
+          '嗯嗯，让我看看。',
+        ];
+        const filler = fillers[Math.floor(Math.random() * fillers.length)];
+        fillerApi.speak(fillerAgentId, { text: filler }).catch(() => {});
+      }
+    }),
   );
   printSuccess(`OpenClaw bridge on localhost:${bridgePort}`);
 
@@ -285,6 +306,10 @@ async function openclawAction(opts: {
 
   const result = await withSpinner('Starting ConvoAI agent...', () => api.start(request));
   track('openclaw_integrate');
+
+  // Wire up filler callback now that we have agent ID
+  fillerApi = api;
+  fillerAgentId = result.agent_id;
 
   printSuccess('Voice bridge is live!');
   console.log('');
