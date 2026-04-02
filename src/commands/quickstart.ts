@@ -51,7 +51,6 @@ export function registerQuickstart(program: Command): void {
 
 function banner(): void {
   console.log('');
-  console.log(chalk.cyan('       ') + chalk.blueBright.bold('/\\/\\'));
   const line = chalk.blueBright('  ─────────────────────────────────────────');
   console.log(line);
   console.log('');
