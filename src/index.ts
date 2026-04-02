@@ -163,6 +163,9 @@ export function run(): void {
   registerTemplateDelete(template);
   registerTemplateUse(template);
 
+  // ── chat (top-level shortcut) ────────────────────────────────────────────
+  registerAgentChat(program);
+
   // ── quickstart ──────────────────────────────────────────────────────────
   registerQuickstart(program);
 
