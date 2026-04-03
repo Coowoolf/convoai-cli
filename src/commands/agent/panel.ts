@@ -17,7 +17,9 @@ interface PanelOpts {
   lang: 'cn' | 'global';
   config: ProfileConfig;
   onExit: () => Promise<void>;
-  _sharedState?: PanelState; // shared with go.ts for live transcript
+  _sharedState?: PanelState;
+  ptt?: boolean; // push-to-talk mode
+  wsBroadcast?: (msg: Record<string, unknown>) => void; // send to WebSocket clients
 }
 
 interface TranscriptEntry {
@@ -163,8 +165,37 @@ export async function runPanel(opts: PanelOpts): Promise<void> {
   };
   process.on('SIGINT', sigintHandler);
 
+  // ── PTT (Push-to-Talk) via spacebar ──────────────────────────────────
+  let pttActive = false;
+  let pttTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function pttPress(): void {
+    if (!opts.ptt || !opts.wsBroadcast) return;
+    if (!pttActive) {
+      pttActive = true;
+      opts.wsBroadcast({ type: 'ptt_on' });
+      // Show PTT indicator
+      process.stdout.write(`\r\x1b[K  ${chalk.green.bold('🎙 Speaking...')} ${chalk.dim('(release space to stop)')}`);
+    }
+    // Reset release timer — if no more space keys within 150ms, consider released
+    if (pttTimer) clearTimeout(pttTimer);
+    pttTimer = setTimeout(() => {
+      if (pttActive) {
+        pttActive = false;
+        opts.wsBroadcast!({ type: 'ptt_off' });
+        process.stdout.write(`\r\x1b[K  ${chalk.dim('🎙 Hold space to talk')}`);
+      }
+    }, 150);
+  }
+
   const keyHandler = async (key: string): Promise<void> => {
     if (state.inSubmenu) return;
+
+    // PTT: spacebar
+    if (key === ' ' && opts.ptt) {
+      pttPress();
+      return;
+    }
 
     switch (key) {
       case 'l':
@@ -251,7 +282,11 @@ function printHeader(
   console.log(`  ${chalk.yellow('\uD83C\uDF99')} ${asrVendor} (${asrLang})  ${chalk.magenta('\uD83E\uDDE0')} ${llmModel}  ${chalk.blue('\uD83D\uDD0A')} ${ttsVendor}  ${chalk.dim('\u23F1')} ${silenceMs}ms`);
   console.log(`  ${gradientTitle('\u2500'.repeat(52))}`);
   console.log('');
-  console.log(chalk.dim(`  ${chalk.cyan('[a]')} ASR  ${chalk.cyan('[l]')} LLM  ${chalk.cyan('[t]')} TTS  ${chalk.cyan('[v]')} VAD  ${chalk.cyan('[q]')} ${str.panelExit}`));
+  if (opts.ptt) {
+    console.log(chalk.dim(`  ${chalk.cyan('[space]')} Hold to talk  ${chalk.cyan('[a]')} ASR  ${chalk.cyan('[l]')} LLM  ${chalk.cyan('[t]')} TTS  ${chalk.cyan('[v]')} VAD  ${chalk.cyan('[q]')} ${str.panelExit}`));
+  } else {
+    console.log(chalk.dim(`  ${chalk.cyan('[a]')} ASR  ${chalk.cyan('[l]')} LLM  ${chalk.cyan('[t]')} TTS  ${chalk.cyan('[v]')} VAD  ${chalk.cyan('[q]')} ${str.panelExit}`));
+  }
   console.log(`  ${gradientTitle('\u2500'.repeat(52))}`);
   console.log('');
 }

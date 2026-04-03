@@ -9,6 +9,7 @@
   const token = P.get('token') || null;
   const uid = Number(P.get('uid')) || 0;
   const wsPort = P.get('wsPort') || '3211';
+  const pttMode = P.get('ptt') === '1';
 
   let ws, client, localTrack;
 
@@ -29,6 +30,14 @@
       try {
         const msg = JSON.parse(e.data);
         if (msg.type === 'stop') cleanup();
+        if (msg.type === 'ptt_on' && localTrack) {
+          localTrack.setMuted(false);
+          send({ type: 'ptt_status', muted: false });
+        }
+        if (msg.type === 'ptt_off' && localTrack) {
+          localTrack.setMuted(true);
+          send({ type: 'ptt_status', muted: true });
+        }
       } catch {}
     };
 
@@ -105,7 +114,13 @@
         AGC: true,   // auto gain control
       });
       await client.publish([localTrack]);
-      send({ type: 'ready' });
+      // PTT mode: start muted, terminal controls via WebSocket
+      if (pttMode) {
+        localTrack.setMuted(true);
+        send({ type: 'ready', ptt: true });
+      } else {
+        send({ type: 'ready' });
+      }
     } catch (err) {
       send({ type: 'error', text: err.message });
     }

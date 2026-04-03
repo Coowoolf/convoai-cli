@@ -321,66 +321,151 @@ async function openclawAction(opts: {
     ['Channel', opts.channel],
   ]);
 
-  // ── 4. Open browser for voice chat ────────────────────────────────────────
-  // Reuse the existing web client
+  // ── 4. Headless Chrome + PTT + Panel ──────────────────────────────────────
   const { readFileSync } = await import('node:fs');
   const { fileURLToPath } = await import('node:url');
   const { dirname, join } = await import('node:path');
+  const { WebSocketServer } = await import('ws');
+  const { findChrome } = await import('../utils/find-chrome.js');
+  const { runPanel, handleTranscriptMessage } = await import('./agent/panel.js');
+
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
 
+  // Find chat-client.html
   let htmlPath = '';
   let dir = __dirname;
   for (let i = 0; i < 6; i++) {
-    const c = join(dir, 'src', 'web', 'client.html');
+    const c = join(dir, 'src', 'web', 'chat-client.html');
     try { readFileSync(c); htmlPath = c; break; } catch { /* */ }
     dir = dirname(dir);
   }
+  if (!htmlPath) {
+    printError('Could not find chat-client.html');
+    ngrokProcess.kill();
+    bridge.close();
+    process.exit(1);
+  }
 
-  if (htmlPath) {
-    const html = readFileSync(htmlPath, 'utf-8');
-    const webPort = 3210;
-    const webServer = createServer((_, res) => {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(html);
+  const html = readFileSync(htmlPath, 'utf-8');
+  const httpPort = 3210;
+  const wsPort = 3211;
+
+  const webServer = createServer((_, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(html);
+  });
+  await new Promise<void>((resolve) => webServer.listen(httpPort, resolve));
+
+  const wss = new WebSocketServer({ port: wsPort });
+
+  // Shared panel state for live transcript
+  const panelState = {
+    history: [] as any[], turns: [] as any[], inSubmenu: false, printedCount: 0,
+    transcriptEntries: [] as any[], transcriptPrintedCount: 0,
+    ephemeral: null as any, lastEphemeralText: '', hasLiveTranscript: false,
+  };
+
+  // WebSocket broadcast helper
+  const wsBroadcast = (msg: Record<string, unknown>) => {
+    const data = JSON.stringify(msg);
+    for (const client of wss.clients) {
+      try { client.send(data); } catch { /* */ }
+    }
+  };
+
+  wss.on('connection', (ws) => {
+    ws.on('message', (raw) => {
+      try {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === 'transcript' && msg.data) {
+          handleTranscriptMessage(panelState, msg.data);
+        }
+      } catch { /* */ }
     });
-    await new Promise<void>((resolve) => webServer.listen(webPort, resolve));
+  });
+
+  // Launch headless Chrome (hidden, for audio I/O)
+  const chromePath = findChrome();
+  let browser: { close(): Promise<void> } | null = null;
+
+  if (chromePath) {
+    const puppeteer = await import('puppeteer-core');
+    const launched = await puppeteer.default.launch({
+      executablePath: chromePath,
+      headless: false,
+      args: [
+        '--use-fake-ui-for-media-stream',
+        '--autoplay-policy=no-user-gesture-required',
+        '--no-sandbox',
+        '--window-size=1,1',
+        '--window-position=-2000,-2000',
+        '--enable-features=WebRtcAecAudioProcessing',
+      ],
+    });
+    browser = launched as unknown as { close(): Promise<void> };
+
+    const page = await launched.newPage();
+    const context = launched.defaultBrowserContext();
+    await context.overridePermissions(`http://localhost:${httpPort}`, ['microphone']);
 
     const params = new URLSearchParams({
       appId: config.app_id!,
       channel: opts.channel,
       token: clientToken ?? '',
       uid: String(clientUid),
+      wsPort: String(wsPort),
+      ptt: '1', // Enable push-to-talk
     });
-    const url = `http://localhost:${webPort}?${params}`;
 
+    await page.goto(`http://localhost:${httpPort}?${params}`);
+
+    // macOS: hide Chrome
+    if (process.platform === 'darwin') {
+      try {
+        execSync(`osascript -e 'tell application "System Events" to set visible of process "Google Chrome" to false' 2>/dev/null`, { stdio: 'ignore' });
+      } catch { /* */ }
+    }
+  } else {
+    // Fallback: open browser (no PTT in browser mode)
+    const params = new URLSearchParams({
+      appId: config.app_id!,
+      channel: opts.channel,
+      token: clientToken ?? '',
+      uid: String(clientUid),
+    });
     try {
       const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
-      execSync(`${cmd} "${url}"`);
+      execSync(`${cmd} "http://localhost:${httpPort}?${params}"`);
     } catch { /* */ }
+  }
 
-    console.log('');
-    console.log(chalk.green.bold('  🎙  Talk to OpenClaw!'));
-    console.log(chalk.dim('  Browser opened — allow microphone and speak.'));
-    console.log('');
-    console.log(chalk.dim('  You → mic → ASR → OpenClaw 🦞 → TTS → speaker'));
-    console.log('');
-    console.log(chalk.dim('  Press Ctrl+C to stop.'));
+  console.log('');
+  console.log(chalk.green.bold('  🎙  Talk to OpenClaw!'));
+  console.log(chalk.dim(chromePath
+    ? '  Hold space to talk → OpenClaw 🦞 → hear response'
+    : '  Browser opened — allow microphone and speak.'));
+  console.log('');
 
+  // ── Enter panel with PTT enabled ──────────────────────────────────────────
+  const lang: 'cn' | 'global' = config.region === 'cn' ? 'cn' : 'global';
 
-    // Cleanup
-    const cleanup = async () => {
-      console.log('');
-      try { await api.stop(result.agent_id); } catch { /* */ }
+  await runPanel({
+    api,
+    agentId: result.agent_id,
+    channel: opts.channel,
+    lang,
+    config,
+    ptt: !!chromePath, // PTT only in terminal mode
+    wsBroadcast,
+    _sharedState: panelState,
+    onExit: async () => {
+      wss.close();
+      webServer.close();
+      if (browser) try { await browser.close(); } catch { /* */ }
       ngrokProcess.kill();
       bridge.close();
-      webServer.close();
-      printSuccess('OpenClaw voice session ended.');
-      process.exit(0);
-    };
-    process.on('SIGINT', cleanup);
-    process.on('SIGTERM', cleanup);
-
-    await new Promise(() => {});
-  }
+      try { await api.stop(result.agent_id); } catch { /* */ }
+    },
+  });
 }
