@@ -106,7 +106,7 @@ export async function runPanel(opts: PanelOpts): Promise<void> {
     if (state.inSubmenu) return;
     await refreshData(opts, state);
     printNewMessages(state, str);
-  }, 1500);
+  }, 500);
 
   // Keyboard handling — raw mode stays on for the entire session
   const stdin = process.stdin;
@@ -229,9 +229,36 @@ function printHeader(
 
 // ─── Print New Messages (append only, no redraw) ───────────────────────────
 
+// Typewriter queue — messages wait here to be animated one by one
+let typewriterBusy = false;
+const typewriterQueue: Array<{ prefix: string; text: string }> = [];
+
+async function typewrite(prefix: string, text: string): Promise<void> {
+  process.stdout.write(`  ${prefix} `);
+  const chars = [...text];
+  for (let i = 0; i < chars.length; i++) {
+    process.stdout.write(chars[i]);
+    // Fast: 20ms per char, but skip delay for spaces and every 3rd char for speed
+    if (chars[i] !== ' ' && i % 3 === 0) {
+      await new Promise(r => setTimeout(r, 20));
+    }
+  }
+  process.stdout.write('\n');
+}
+
+async function processTypewriterQueue(): Promise<void> {
+  if (typewriterBusy) return;
+  typewriterBusy = true;
+  while (typewriterQueue.length > 0) {
+    const item = typewriterQueue.shift()!;
+    await typewrite(item.prefix, item.text);
+  }
+  typewriterBusy = false;
+}
+
 function printNewMessages(
   state: PanelState,
-  str: ReturnType<typeof getStrings>,
+  _str: ReturnType<typeof getStrings>,
 ): void {
   const newEntries = state.history.slice(state.printedCount);
   if (newEntries.length === 0) return;
@@ -245,15 +272,24 @@ function printNewMessages(
   for (const entry of newEntries) {
     if (entry.role === 'assistant') {
       const latency = turnIdx < state.turns.length ? state.turns[turnIdx]?.e2e_latency_ms : undefined;
-      const tag = latency ? chalk.dim(` [${latency < 1000 ? `${latency}ms` : `${(latency / 1000).toFixed(1)}s`}]`) : '';
-      console.log(`  ${chalk.green('[assistant]')}${tag} ${entry.content || ''}`);
+      const tag = latency ? chalk.dim(`[${latency < 1000 ? `${latency}ms` : `${(latency / 1000).toFixed(1)}s`}] `) : '';
+      // Assistant messages get typewriter effect
+      typewriterQueue.push({
+        prefix: `${chalk.green('[assistant]')} ${tag}`,
+        text: entry.content || '',
+      });
       turnIdx++;
     } else {
-      console.log(`  ${chalk.cyan('[you]      ')} ${entry.content || chalk.dim('(empty)')}`);
+      // User messages appear instantly
+      typewriterQueue.push({
+        prefix: chalk.cyan('[you]      '),
+        text: entry.content || '',
+      });
     }
   }
 
   state.printedCount = state.history.length;
+  processTypewriterQueue();
 }
 
 // ─── Avg Latency Computation ────────────────────────────────────────────────
