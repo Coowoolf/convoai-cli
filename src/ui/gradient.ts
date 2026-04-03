@@ -1,8 +1,4 @@
-import { Chalk } from 'chalk';
-
-// Use a dedicated truecolor chalk instance so gradient hex codes are always
-// rendered as full RGB escapes, without mutating the global chalk level.
-const chalk = new Chalk({ level: 3 });
+import chalk from 'chalk';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
