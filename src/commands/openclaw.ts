@@ -85,16 +85,41 @@ function createOpenClawBridge(agentId: string, port: number, onRequest?: () => v
           'Connection': 'keep-alive',
         });
 
-        // ── A. Send filler immediately (user hears "让我想想" within 1s) ──
+        // ── A. Send filler AS REAL CONTENT (not speak API) ─────────
+        // Agora ConvoAI has an internal LLM timeout (~10s). If we send
+        // filler via speak API (separate channel) but leave the SSE stream
+        // empty for 19s while OpenClaw processes, Agora kills the connection.
+        // Fix: send filler as actual SSE content chunks. Agora TTS will
+        // speak the filler, and when OpenClaw replies, TTS continues with
+        // the real response — seamless.
         res.write(`data: ${JSON.stringify({
           id, object: 'chat.completion.chunk', created: ts(),
           choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }],
         })}\n\n`);
 
-        // ── A. Notify main process to send filler via speak API ─────
-        if (userText.length > 1 && onRequest) onRequest();
+        if (userText.length > 1) {
+          const fillers = [
+            '好的，让我想一想。',
+            '收到了，我来看一看。',
+            '嗯，让我处理一下。',
+            '好，我来帮你查一下。',
+            '收到，稍等我一下。',
+            '好的，马上回复你。',
+            '嗯嗯，让我看看。',
+          ];
+          const filler = fillers[Math.floor(Math.random() * fillers.length)];
+          res.write(chunk(filler + ' '));
+        }
 
-        // ── B. Call OpenClaw ASYNC ───────────────────────────────────
+        // ── B. Keep-alive padding every 5s (real content, not comment) ──
+        const keepAlive = setInterval(() => {
+          try {
+            // Send a space as content — keeps Agora's LLM timeout from firing
+            res.write(chunk(' '));
+          } catch { clearInterval(keepAlive); }
+        }, 5000);
+
+        // ── C. Call OpenClaw ASYNC ───────────────────────────────────
         const { execFile } = await import('node:child_process');
 
         const replyText = await new Promise<string>((resolve) => {
@@ -119,7 +144,9 @@ function createOpenClawBridge(agentId: string, port: number, onRequest?: () => v
           });
         });
 
-        // ── B. Stream the reply by sentences ─────────────────────────
+        clearInterval(keepAlive);
+
+        // ── D. Stream the reply by sentences ─────────────────────────
         const sentences = replyText.match(/[^。！？.!?\n]+[。！？.!?\n]?/g) ?? [replyText];
         for (const sentence of sentences) {
           res.write(chunk(sentence));
@@ -398,9 +425,8 @@ async function openclawAction(opts: {
         '--use-fake-ui-for-media-stream',
         '--autoplay-policy=no-user-gesture-required',
         '--no-sandbox',
-        '--window-size=1,1',
-        '--window-position=-2000,-2000',
         '--enable-features=WebRtcAecAudioProcessing',
+        // Keep window visible for audio output (macOS may block hidden windows)
       ],
     });
     browser = launched as unknown as { close(): Promise<void> };
@@ -420,8 +446,8 @@ async function openclawAction(opts: {
 
     await page.goto(`http://localhost:${httpPort}?${params}`);
 
-    // macOS: hide Chrome
-    if (process.platform === 'darwin') {
+    // macOS: keep Chrome visible for now (hiding may block audio)
+    if (false && process.platform === 'darwin') {
       try {
         execSync(`osascript -e 'tell application "System Events" to set visible of process "Google Chrome" to false' 2>/dev/null`, { stdio: 'ignore' });
       } catch { /* */ }
