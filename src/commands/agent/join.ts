@@ -6,15 +6,15 @@ import { dirname, join } from 'node:path';
 import { execSync } from 'node:child_process';
 import chalk from 'chalk';
 import type { StartAgentRequest, LLMConfig } from '../../api/types.js';
-import { getAgentAPI, formatTimestamp } from './_helpers.js';
-import { resolveConfig, loadConfig } from '../../config/manager.js';
+import { getAgentAPI } from './_helpers.js';
+import { resolveConfig } from '../../config/manager.js';
+import { runPanel } from './panel.js';
 import { getPreset } from '../../presets/defaults.js';
 import { generateRtcToken } from '../../utils/token.js';
 import { withSpinner } from '../../ui/spinner.js';
-import { printSuccess, printError, printHint } from '../../ui/output.js';
+import { printSuccess, printError } from '../../ui/output.js';
 import { printKeyValue } from '../../ui/table.js';
 import { handleError } from '../../utils/errors.js';
-import { shortId } from '../../utils/hints.js';
 import { track } from '../../utils/telemetry.js';
 
 // ─── Greeting by Language ──────────────────────────────────────────────────
@@ -198,26 +198,18 @@ async function joinAction(opts: {
     }
   }
 
-  console.log(chalk.dim('  Press Ctrl+C to stop the agent and exit.\n'));
+  // ── 5. Runtime control panel ────────────────────────────────────────────
+  const lang: 'cn' | 'global' = config.region === 'cn' ? 'cn' : 'global';
 
-  // ── 5. Handle shutdown ─────────────────────────────────────────────────
-  const cleanup = async () => {
-    console.log('');
-    try {
-      await withSpinner(`Stopping agent ${shortId(result.agent_id)}...`, () =>
-        api.stop(result.agent_id),
-      );
-      printSuccess('Agent stopped.');
-    } catch {
-      // Agent may have already stopped
-    }
-    server.close();
-    process.exit(0);
-  };
-
-  process.on('SIGINT', cleanup);
-  process.on('SIGTERM', cleanup);
-
-  // Keep alive
-  await new Promise(() => {});
+  await runPanel({
+    api,
+    agentId: result.agent_id,
+    channel: opts.channel,
+    lang,
+    config,
+    onExit: async () => {
+      server.close();
+      try { await api.stop(result.agent_id); } catch {}
+    },
+  });
 }

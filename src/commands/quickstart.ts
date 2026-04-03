@@ -11,16 +11,15 @@ import { AgentAPI } from '../api/agents.js';
 import { generateRtcToken } from '../utils/token.js';
 import { withSpinner } from '../ui/spinner.js';
 import { printSuccess, printError, printHint } from '../ui/output.js';
-import { printKeyValue, printTable } from '../ui/table.js';
-import { colorStatus } from '../ui/colors.js';
+import { printKeyValue } from '../ui/table.js';
 import { handleError } from '../utils/errors.js';
 import { track } from '../utils/telemetry.js';
-import { formatTimestamp } from '../utils/format.js';
 import { gradientBox, gradientBoxGreen, gradientProgress } from '../ui/gradient.js';
+import { runPanel } from './agent/panel.js';
 import { getStrings } from '../ui/i18n.js';
 import { LLM_PROVIDERS, TTS_PROVIDERS, ASR_PROVIDERS, ASR_LANGUAGES } from '../providers/catalog.js';
 import type { StepStrings } from '../ui/i18n.js';
-import type { StartAgentRequest, ConvoAIConfig, LLMConfig } from '../api/types.js';
+import type { StartAgentRequest, LLMConfig } from '../api/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -761,108 +760,18 @@ async function quickstartAction(): Promise<void> {
   console.log(chalk.green.bold(`  ${str.voiceLive}`));
   console.log(chalk.dim(`  ${str.browserHint}`));
   console.log('');
-  console.log(chalk.dim('  ') + chalk.dim(str.enterHint));
-  console.log('');
 
-  // Wait for user to press Enter
-  await new Promise<void>((resolve) => {
-    const onSigint = () => { resolve(); };
-    process.on('SIGINT', onSigint);
-
-    if (process.stdin.isTTY) {
-      process.stdin.setRawMode(false);
-    }
-    process.stdin.resume();
-    process.stdin.once('data', () => {
-      process.removeListener('SIGINT', onSigint);
-      resolve();
-    });
+  // Hand off to the runtime control panel (handles status display, key
+  // interaction, and the session report on exit).
+  await runPanel({
+    api,
+    agentId: result.agent_id,
+    channel: channelName,
+    lang: platform,
+    config: profile,
+    onExit: async () => {
+      server.close();
+      try { await api.stop(result.agent_id); } catch {}
+    },
   });
-
-  server.close();
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // STEP 6: Results
-  // ═══════════════════════════════════════════════════════════════════════
-  console.log('');
-  showStep(str.step6, 6, TOTAL_STEPS);
-
-  // Fetch history
-  try {
-    const history = await withSpinner('Fetching conversation...', () => api.history(result.agent_id));
-    const entries = history.contents ?? [];
-
-    if (entries.length > 0) {
-      console.log('');
-      console.log(chalk.bold('  Conversation:'));
-      console.log('');
-      for (const entry of entries) {
-        const role = entry.role === 'assistant'
-          ? chalk.green('[assistant]'.padEnd(12))
-          : chalk.cyan('[user]'.padEnd(12));
-        console.log(`    ${role} ${entry.content || chalk.dim('(empty)')}`);
-      }
-      console.log('');
-      console.log(chalk.dim(`  ${entries.length} messages total.`));
-    } else {
-      console.log(chalk.dim('  No conversation recorded.'));
-    }
-  } catch {
-    console.log(chalk.dim('  Could not fetch history.'));
-  }
-
-  // Fetch turns
-  try {
-    const turnsData = await withSpinner('Fetching analytics...', () => api.turns(result.agent_id));
-    const turns = turnsData.turns ?? [];
-
-    if (turns.length > 0) {
-      console.log('');
-      console.log(chalk.bold('  Latency Analytics:'));
-      console.log('');
-      const headers = ['TYPE', 'E2E', 'ASR', 'LLM', 'TTS'];
-      const rows = turns.slice(-5).map(t => [
-        t.type,
-        t.e2e_latency_ms ? `${t.e2e_latency_ms}ms` : '—',
-        t.segmented_latency_ms?.asr_ms ? `${t.segmented_latency_ms.asr_ms}ms` : '—',
-        t.segmented_latency_ms?.llm_ms ? `${t.segmented_latency_ms.llm_ms}ms` : '—',
-        t.segmented_latency_ms?.tts_ms ? `${t.segmented_latency_ms.tts_ms}ms` : '—',
-      ]);
-      printTable(headers, rows);
-    }
-  } catch {
-    // turns may not be available
-  }
-
-  // Get final status
-  try {
-    const status = await api.status(result.agent_id);
-    console.log('');
-    printKeyValue([
-      ['Agent ID', result.agent_id],
-      ['Status', colorStatus(status.status)],
-      ['Started', formatTimestamp(status.start_ts)],
-      ['Stopped', formatTimestamp(status.stop_ts)],
-    ]);
-  } catch { /* */ }
-
-  track('qs_step6');
-
-  // Stop the agent
-  try {
-    await withSpinner('Stopping agent...', () => api.stop(result.agent_id));
-    printSuccess(str.complete);
-  } catch {
-    printSuccess(str.complete);
-  }
-
-  console.log('');
-  console.log(chalk.cyan.bold('  What\'s next?'));
-  console.log(chalk.dim('  ' + '─'.repeat(37)));
-  console.log(`  ${chalk.bold('convoai agent join -c room1')}     Start a voice chat session`);
-  console.log(`  ${chalk.bold('convoai agent start -c room1')}    Start agent (API only)`);
-  console.log(`  ${chalk.bold('convoai preset list')}             See built-in presets`);
-  console.log(`  ${chalk.bold('convoai template save mybot')}     Save config as template`);
-  console.log(`  ${chalk.bold('convoai --help')}                  See all commands`);
-  console.log('');
 }

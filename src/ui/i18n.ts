@@ -44,6 +44,31 @@ export interface I18nStrings {
   sessionComplete: string;
   viewReport: string;
   complete: string;
+
+  // Panel strings
+  panelRunning: string;
+  panelConversation: string;
+  panelTurns: string;
+  panelAvgLatency: string;
+  panelAdjust: string;
+  panelSwitchModel: string;
+  panelSwitchVendor: string;
+  panelTemperature: string;
+  panelMaxTokens: string;
+  panelSystemPrompt: string;
+  panelSwitchLang: string;
+  panelSpeed: string;
+  panelVolume: string;
+  panelSilenceDuration: string;
+  panelInterruptDuration: string;
+  panelInterruptMode: string;
+  panelBack: string;
+  panelRestartWarning: string;
+  panelUpdated: string;
+  panelHistory: string;
+  panelExit: string;
+  panelCurrent: string;
+  panelRange: string;
 }
 
 const cn: I18nStrings = {
@@ -110,6 +135,31 @@ const cn: I18nStrings = {
   sessionComplete: '\u5BF9\u8BDD\u5B8C\u6210',
   viewReport: '\u67E5\u770B\u672C\u6B21\u5BF9\u8BDD\u7684\u8D28\u91CF\u62A5\u544A',
   complete: '\u2714 \u5B8C\u6210\uFF01',
+
+  // Panel strings
+  panelRunning: 'Agent \u8FD0\u884C\u4E2D',
+  panelConversation: '\u5BF9\u8BDD',
+  panelTurns: '\u8F6E',
+  panelAvgLatency: '\u5E73\u5747\u5EF6\u8FDF',
+  panelAdjust: '\u8981\u8C03\u6574\u4EC0\u4E48',
+  panelSwitchModel: '\u5207\u6362\u6A21\u578B',
+  panelSwitchVendor: '\u5207\u6362\u670D\u52A1\u5546',
+  panelTemperature: '\u8C03\u6574 temperature',
+  panelMaxTokens: '\u8C03\u6574 max_tokens',
+  panelSystemPrompt: '\u4FEE\u6539 system prompt',
+  panelSwitchLang: '\u5207\u6362\u8BED\u8A00',
+  panelSpeed: '\u8C03\u6574\u8BED\u901F',
+  panelVolume: '\u8C03\u6574\u97F3\u91CF',
+  panelSilenceDuration: '\u9759\u9ED8\u7B49\u5F85\u65F6\u95F4',
+  panelInterruptDuration: '\u6253\u65AD\u68C0\u6D4B\u65F6\u95F4',
+  panelInterruptMode: '\u6253\u65AD\u6A21\u5F0F',
+  panelBack: '\u8FD4\u56DE\u4E3B\u9762\u677F',
+  panelRestartWarning: '\u9700\u8981\u91CD\u542F Agent\uFF0C\u5F53\u524D\u5BF9\u8BDD\u5C06\u65AD\u5F00\u3002\u662F\u5426\u7EE7\u7EED\uFF1F',
+  panelUpdated: '\u5DF2\u66F4\u65B0',
+  panelHistory: '\u5BF9\u8BDD\u5386\u53F2',
+  panelExit: '\u9000\u51FA',
+  panelCurrent: '\u5F53\u524D',
+  panelRange: '\u8303\u56F4',
 };
 
 const global: I18nStrings = {
@@ -163,6 +213,31 @@ const global: I18nStrings = {
   sessionComplete: 'Session Complete',
   viewReport: 'View your conversation report',
   complete: '\u2714 Complete!',
+
+  // Panel strings
+  panelRunning: 'Agent running',
+  panelConversation: 'Conversation',
+  panelTurns: 'turns',
+  panelAvgLatency: 'avg latency',
+  panelAdjust: 'What to adjust',
+  panelSwitchModel: 'Switch model',
+  panelSwitchVendor: 'Switch vendor',
+  panelTemperature: 'Adjust temperature',
+  panelMaxTokens: 'Adjust max_tokens',
+  panelSystemPrompt: 'Edit system prompt',
+  panelSwitchLang: 'Switch language',
+  panelSpeed: 'Adjust speed',
+  panelVolume: 'Adjust volume',
+  panelSilenceDuration: 'Silence duration',
+  panelInterruptDuration: 'Interrupt detection',
+  panelInterruptMode: 'Interrupt mode',
+  panelBack: 'Back to panel',
+  panelRestartWarning: 'Agent restart required. Current conversation will be lost. Continue?',
+  panelUpdated: 'Updated',
+  panelHistory: 'Conversation history',
+  panelExit: 'Exit',
+  panelCurrent: 'current',
+  panelRange: 'range',
 };
 
 export function getStrings(lang: 'cn' | 'global'): I18nStrings {
