@@ -23,6 +23,7 @@ interface PanelState {
   history: HistoryEntry[];
   turns: TurnEntry[];
   inSubmenu: boolean;
+  printedCount: number; // how many history entries we've already printed
 }
 
 // ─── Raw-Mode Menu Helper ──────────────────────────────────────────────────
@@ -91,20 +92,21 @@ function readInput(prompt: string): Promise<string> {
 
 export async function runPanel(opts: PanelOpts): Promise<void> {
   const str = getStrings(opts.lang === 'cn' ? 'cn' : 'global');
-  const state: PanelState = { history: [], turns: [], inSubmenu: false };
+  const state: PanelState = { history: [], turns: [], inSubmenu: false, printedCount: 0 };
 
-  // Initial data fetch (best-effort)
+  // Print header once (never redrawn)
+  printHeader(opts, str);
+
+  // Initial data fetch
   await refreshData(opts, state);
+  printNewMessages(state, str);
 
-  // Render initial screen
-  render(opts, state, str);
-
-  // Auto-refresh polling
+  // Auto-refresh: only print NEW messages (append, not redraw)
   const pollTimer = setInterval(async () => {
     if (state.inSubmenu) return;
     await refreshData(opts, state);
-    render(opts, state, str);
-  }, 3000);
+    printNewMessages(state, str);
+  }, 1500);
 
   // Keyboard handling — raw mode stays on for the entire session
   const stdin = process.stdin;
@@ -141,35 +143,34 @@ export async function runPanel(opts: PanelOpts): Promise<void> {
         await llmMenu(opts, state, str);
         await refreshData(opts, state);
         state.inSubmenu = false;
-        render(opts, state, str);
+        printHeader(opts, str);
+        printNewMessages(state, str);
         break;
       case 'a':
         state.inSubmenu = true;
         await asrMenu(opts, state, str);
         await refreshData(opts, state);
         state.inSubmenu = false;
-        render(opts, state, str);
+        printHeader(opts, str);
+        printNewMessages(state, str);
         break;
       case 't':
         state.inSubmenu = true;
         await ttsMenu(opts, state, str);
         await refreshData(opts, state);
         state.inSubmenu = false;
-        render(opts, state, str);
+        printHeader(opts, str);
+        printNewMessages(state, str);
         break;
       case 'v':
         state.inSubmenu = true;
         await vadMenu(opts, state, str);
         await refreshData(opts, state);
         state.inSubmenu = false;
-        render(opts, state, str);
+        printHeader(opts, str);
+        printNewMessages(state, str);
         break;
-      case 'h':
-        state.inSubmenu = true;
-        await historyView(opts, state, str);
-        state.inSubmenu = false;
-        render(opts, state, str);
-        break;
+      // [h] removed — conversation streams live in the panel
       case 'q':
         process.removeListener('SIGINT', sigintHandler);
         await exitPanel();
@@ -201,58 +202,58 @@ async function refreshData(opts: PanelOpts, state: PanelState): Promise<void> {
   }
 }
 
-// ─── Render ─────────────────────────────────────────────────────────────────
+// ─── Print Header (once, on start and after sub-menus) ─────────────────────
 
-function render(
+function printHeader(
   opts: PanelOpts,
+  str: ReturnType<typeof getStrings>,
+): void {
+  console.clear();
+
+  const shortAgent = shortId(opts.agentId);
+  const asrVendor = opts.config.asr?.vendor ?? 'ares';
+  const asrLang = opts.config.asr?.language ?? 'en-US';
+  const llmModel = opts.config.llm?.params?.model ?? opts.config.llm?.model ?? '?';
+  const ttsVendor = opts.config.tts?.vendor ?? '?';
+  const silenceMs = opts.config.turn_detection?.silence_duration_ms ?? 1000;
+
+  console.log('');
+  console.log(`  ${chalk.green('\u26A1')} ${chalk.bold(str.panelRunning)} ${chalk.dim('\u00B7')} ${chalk.cyan(shortAgent)} ${chalk.dim('\u00B7')} Channel: ${chalk.cyan(opts.channel)}`);
+  console.log(`  ${chalk.yellow('\uD83C\uDF99')} ${asrVendor} (${asrLang})  ${chalk.magenta('\uD83E\uDDE0')} ${llmModel}  ${chalk.blue('\uD83D\uDD0A')} ${ttsVendor}  ${chalk.dim('\u23F1')} ${silenceMs}ms`);
+  console.log(`  ${gradientTitle('\u2500'.repeat(52))}`);
+  console.log('');
+  console.log(chalk.dim(`  ${chalk.cyan('[a]')} ASR  ${chalk.cyan('[l]')} LLM  ${chalk.cyan('[t]')} TTS  ${chalk.cyan('[v]')} VAD  ${chalk.cyan('[q]')} ${str.panelExit}`));
+  console.log(`  ${gradientTitle('\u2500'.repeat(52))}`);
+  console.log('');
+}
+
+// ─── Print New Messages (append only, no redraw) ───────────────────────────
+
+function printNewMessages(
   state: PanelState,
   str: ReturnType<typeof getStrings>,
 ): void {
-  const lines: string[] = [];
+  const newEntries = state.history.slice(state.printedCount);
+  if (newEntries.length === 0) return;
 
-  // Status line
-  const shortAgent = shortId(opts.agentId);
-  lines.push(
-    `  ${chalk.green('\u26A1')} ${chalk.bold(str.panelRunning)} ${chalk.dim('\u00B7')} ${chalk.cyan(shortAgent)} ${chalk.dim('\u00B7')} Channel: ${chalk.cyan(opts.channel)}`,
-  );
+  // Match turns with assistant messages for latency
+  let turnIdx = 0;
+  for (let i = 0; i < state.printedCount; i++) {
+    if (state.history[i].role === 'assistant') turnIdx++;
+  }
 
-  // Separator
-  lines.push(`  ${gradientTitle('\u2500'.repeat(52))}`);
+  for (const entry of newEntries) {
+    if (entry.role === 'assistant') {
+      const latency = turnIdx < state.turns.length ? state.turns[turnIdx]?.e2e_latency_ms : undefined;
+      const tag = latency ? chalk.dim(` [${latency < 1000 ? `${latency}ms` : `${(latency / 1000).toFixed(1)}s`}]`) : '';
+      console.log(`  ${chalk.green('[assistant]')}${tag} ${entry.content || ''}`);
+      turnIdx++;
+    } else {
+      console.log(`  ${chalk.cyan('[you]      ')} ${entry.content || chalk.dim('(empty)')}`);
+    }
+  }
 
-  // Config grid
-  const asrVendor = opts.config.asr?.vendor ?? 'ares';
-  const asrLang = opts.config.asr?.language ?? opts.config.asr?.params?.language ?? 'en-US';
-  const llmModel = opts.config.llm?.params?.model ?? opts.config.llm?.model ?? 'unknown';
-  const ttsVendor = opts.config.tts?.vendor ?? 'unknown';
-  const silenceMs = '500';
-
-  lines.push(
-    `  ${chalk.yellow('\uD83C\uDF99')} ${asrVendor} (${asrLang})    ${chalk.magenta('\uD83E\uDDE0')} ${llmModel}`,
-  );
-  lines.push(
-    `  ${chalk.blue('\uD83D\uDD0A')} ${ttsVendor}    ${chalk.dim('\u23F1')} VAD ${silenceMs}ms`,
-  );
-
-  // Stats
-  const turnCount = state.turns.length;
-  const avgLatency = computeAvgLatency(state.turns);
-  lines.push('');
-  lines.push(
-    `  ${str.panelConversation}: ${chalk.bold(String(turnCount))} ${str.panelTurns} ${chalk.dim('\u00B7')} ${str.panelAvgLatency} ${chalk.bold(avgLatency)}`,
-  );
-
-  // Separator
-  lines.push(`  ${gradientTitle('\u2500'.repeat(52))}`);
-
-  // Key legend
-  lines.push('');
-  lines.push(
-    `  ${chalk.cyan('[a]')} ASR  ${chalk.cyan('[l]')} LLM  ${chalk.cyan('[t]')} TTS  ${chalk.cyan('[v]')} VAD  ${chalk.cyan('[h]')} ${str.panelHistory}  ${chalk.cyan('[q]')} ${str.panelExit}`,
-  );
-  lines.push('');
-
-  // Write to screen: cursor home + content + clear-to-end
-  process.stdout.write('\x1b[H' + lines.join('\n') + '\x1b[J');
+  state.printedCount = state.history.length;
 }
 
 // ─── Avg Latency Computation ────────────────────────────────────────────────
@@ -732,52 +733,7 @@ async function vadMenu(
 
 // ─── History View ───────────────────────────────────────────────────────────
 
-async function historyView(
-  opts: PanelOpts,
-  state: PanelState,
-  str: ReturnType<typeof getStrings>,
-): Promise<void> {
-  // Fetch latest history
-  await refreshData(opts, state);
-
-  console.clear();
-  console.log();
-  console.log(chalk.bold(`  ${str.panelHistory}`));
-  console.log(chalk.dim(`  ${'─'.repeat(50)}`));
-  console.log();
-
-  if (state.history.length === 0) {
-    console.log(chalk.dim('  No conversation history yet.'));
-  } else {
-    for (const entry of state.history) {
-      const roleTag =
-        entry.role === 'user'
-          ? chalk.cyan('[user]     ')
-          : chalk.green('[assistant]');
-      const content = entry.content || chalk.dim('(empty)');
-      // Truncate very long messages
-      const truncated =
-        content.length > 200 ? content.slice(0, 197) + '...' : content;
-      console.log(`  ${roleTag} ${truncated}`);
-    }
-  }
-
-  console.log();
-  console.log(chalk.dim(`  ${state.history.length} entries total.`));
-  console.log(`  ${chalk.dim('[0]')} ${chalk.dim('Back')}`);
-  console.log('');
-
-  // Wait for any key to return (already in raw mode)
-  await new Promise<void>((resolve) => {
-    const handler = (key: string): void => {
-      process.stdin.removeListener('data', handler);
-      // Suppress unused variable — any key returns
-      void key;
-      resolve();
-    };
-    process.stdin.on('data', handler);
-  });
-}
+// historyView removed — conversation now streams live in the panel
 
 // ─── Pause (wait for any key) ──────────────────────────────────────────────
 
