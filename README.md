@@ -22,7 +22,8 @@ Start, manage, and monitor conversational AI agents from your terminal. One comm
 
 - **Full Agora ConvoAI REST API coverage** -- every endpoint, one CLI
 - **Interactive and non-interactive modes** -- prompts when you're exploring, flags when you're scripting
-- **Real-time agent monitoring** -- watch status, latency, and conversation turns live
+- **Instant voice chat** -- `convoai go` launches a voice agent and browser client with zero params
+- **Real-time agent monitoring** -- live status, latency, and conversation turns in the runtime panel
 - **Built-in presets** -- start with OpenAI, Anthropic, Gemini, or Realtime in one flag
 - **Profile management** -- switch between dev, staging, and prod with a single option
 - **JSON output for scripting** -- pipe `--json` into `jq` for CI/CD pipelines
@@ -41,8 +42,14 @@ npm install -g convoai
 # Authenticate with your Agora credentials
 convoai auth login
 
-# Start an agent on a channel using a preset
-convoai agent start --channel my-first-agent --preset openai-mini
+# Zero-params instant voice chat (launches browser + agent in one step)
+convoai go
+
+# Or run guided setup first
+convoai go --setup
+
+# Override the model on the fly
+convoai go --model gpt-4o
 
 # See what's running
 convoai agent list
@@ -146,6 +153,48 @@ convoai auth logout
 ## Commands Reference
 
 Every command supports `--json` for machine-readable output and `--profile <name>` to target a specific configuration profile.
+
+Commands are organized into scenario groups:
+
+| Group | Commands |
+|---|---|
+| **Start** | `go`, `quickstart` |
+| **Agent** | `agent start`, `agent stop`, `agent status`, `agent list`, `agent update`, `agent speak`, `agent interrupt`, `agent history`, `agent turns`, `agent join` |
+| **Config** | `config init`, `config set`, `config get`, `config show`, `config path`, `auth login`, `auth logout`, `auth status` |
+| **More** | `preset list`, `preset use`, `template save/list/show/delete/use`, `call initiate/hangup/status`, `token`, `completion` |
+
+---
+
+### `go` -- Instant voice chat
+
+Zero-params command that launches a voice agent and opens a browser-based voice client in one step. Uses your saved configuration (or prompts for setup if unconfigured).
+
+```bash
+convoai go [options]
+```
+
+| Flag | Description |
+|---|---|
+| `--setup` | Run the guided setup wizard before starting |
+| `--model <model>` | Override the LLM model (e.g. `gpt-4o`, `claude-sonnet-4-20250514`) |
+
+**Examples:**
+
+```bash
+# Instant voice chat -- no flags needed
+convoai go
+
+# Run setup first, then start
+convoai go --setup
+
+# Override the model for this session
+convoai go --model gpt-4o
+
+# Use a different model provider
+convoai go --model claude-sonnet-4-20250514
+```
+
+---
 
 ### Agent Management
 

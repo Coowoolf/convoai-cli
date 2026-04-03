@@ -10,7 +10,7 @@
 
 **Mascot:** ⚡🐦 Blue Thunderbird
 
-**Version:** 1.0.3  
+**Version:** 1.4.0  
 **License:** MIT  
 **Runtime:** Node.js >= 18.0.0
 
@@ -59,6 +59,16 @@ This script will:
 npm install -g convoai
 convoai quickstart
 ```
+
+### Returning Users
+
+If you already have credentials and providers configured, skip the wizard entirely:
+
+```bash
+convoai go
+```
+
+This zero-params command starts a voice agent and opens the browser client immediately. Use `convoai go --setup` to re-run guided setup, or `convoai go --model gpt-4o` to override the model for a single session.
 
 ### What the Quickstart Wizard Does
 
@@ -301,7 +311,8 @@ Expected terminal output:
 
   What's next?
   ─────────────────────────────────────
-  convoai agent join -c room1     Start a voice chat session
+  convoai go                      Instant voice chat (zero params)
+  convoai go --model gpt-4o       Override the model
   convoai agent start -c room1    Start agent (API only)
   convoai preset list             See built-in presets
   convoai template save mybot     Save config as template
@@ -505,6 +516,8 @@ convoai auth status --profile staging
 
 Aliases: `agent` can also be written as `a`, `config` as `c`, `preset` as `p`, `template` as `t`.
 
+> **Retired in v1.4.0:** The `chat`, `repl`, and `watch` commands have been removed. Use `convoai go` for instant voice chat and the runtime panel for live monitoring.
+
 ---
 
 ### quickstart
@@ -526,6 +539,48 @@ convoai quickstart
 ```
 
 The wizard walks through 6 steps interactively. All configuration is saved to `~/.config/convoai/config.json`. The quickstart automatically generates tokens, starts an agent, launches a local web server on port 3210, and opens your browser.
+
+---
+
+### go
+
+Zero-params instant voice chat. Launches a voice agent and opens a browser-based voice client using your saved configuration. If no configuration exists, prompts for setup automatically.
+
+```
+convoai go [options]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--setup` | Run the guided setup wizard before starting |
+| `--model <model>` | Override the LLM model for this session (e.g. `gpt-4o`, `claude-sonnet-4-20250514`) |
+
+**Example:**
+
+```bash
+# Instant voice chat -- zero params
+convoai go
+
+# Re-run setup, then start
+convoai go --setup
+
+# Override model for this session
+convoai go --model gpt-4o
+```
+
+**Expected output:**
+
+```
+⠋ Starting agent...
+✔ Agent is live!
+  Agent ID   abc123...
+  Channel    go-m1abc2d
+
+  🎙  Voice chat is live!
+  Browser opened — allow microphone and start talking.
+
+  Press Enter when done to see results, or Ctrl+C to quit.
+```
 
 ---
 
@@ -860,32 +915,6 @@ convoai agent turns <agent-id> [options]
 convoai agent turns abc123
 convoai agent turns abc123 --limit 5
 ```
-
----
-
-### agent watch
-
-Real-time agent monitoring dashboard. Polls the API at a set interval and renders a live view. Pass an agent ID to watch one agent (with conversation + latency), or omit it to watch all agents in a table.
-
-```
-convoai agent watch [agent-id] [options]
-```
-
-| Flag | Description |
-|------|-------------|
-| `--interval <seconds>` | Polling interval in seconds (default: 2 for single, 3 for all) |
-| `--profile <name>` | Config profile to use |
-| `--no-clear` | Do not clear the screen between refreshes |
-
-**Example:**
-
-```bash
-convoai agent watch abc123
-convoai agent watch --interval 5
-convoai agent watch abc123 --no-clear
-```
-
-Press Ctrl+C to stop watching. The watch auto-stops if the agent reaches a terminal state (STOPPED or FAILED).
 
 ---
 
@@ -1377,35 +1406,6 @@ convoai completion install
 ✔ Zsh completions installed to ~/.zshrc
   Hint: Restart your shell or run `source ~/.zshrc` to activate.
 ```
-
----
-
-### repl
-
-Start an interactive shell for managing agents. Supports tab completion, command history, and contextual hints.
-
-```
-convoai repl
-```
-
-**Available REPL commands:**
-
-| Command | Description |
-|---------|-------------|
-| `help` | Show help |
-| `exit` / `quit` | Exit the REPL |
-| `start <channel> [--preset name]` | Start a new agent |
-| `stop <id>` | Stop an agent |
-| `status <id>` | Show agent status |
-| `list` / `ls` | List running agents |
-| `speak <id> <text>` | Send a TTS message |
-| `interrupt <id>` | Interrupt an agent |
-| `history <id>` | Show conversation history |
-| `watch <id>` | Poll agent status (single shot) |
-| `config` | Show current configuration summary |
-| `clear` | Clear the screen |
-
-**Keyboard:** Up/Down for history, Tab for completion, Ctrl+C twice to exit.
 
 ---
 
