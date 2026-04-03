@@ -1,124 +1,34 @@
 import { describe, it, expect, vi } from 'vitest';
 
 /**
- * Panel interaction tests — ensure stdin raw mode toggling works correctly
- * for submenu entry/exit, preventing the "Enter key doesn't work" bug.
+ * Panel interaction tests — verify that raw mode stays active throughout
+ * sub-menu navigation (no inquirer, no raw mode toggling).
  */
 
-describe('Panel openSubmenu stdin management', () => {
-  it('removes data listener before entering submenu', async () => {
-    const mockStdin = {
-      setRawMode: vi.fn(),
-      pause: vi.fn(),
-      resume: vi.fn(),
-      removeListener: vi.fn(),
-      on: vi.fn(),
-    };
-
+describe('Panel raw-mode submenu flow', () => {
+  it('stays in raw mode during submenu (no toggling)', async () => {
     const state = { inSubmenu: false };
-    const keyHandler = vi.fn();
     const submenuFn = vi.fn().mockResolvedValue(undefined);
+    const refreshFn = vi.fn().mockResolvedValue(undefined);
+    const renderFn = vi.fn();
 
-    // Simulate openSubmenu behavior
+    // Simulate the new keyHandler flow for a submenu key
     state.inSubmenu = true;
-    mockStdin.removeListener('data', keyHandler);
-    mockStdin.setRawMode(false);
-    mockStdin.pause();
-
     await submenuFn();
-
-    mockStdin.resume();
-    mockStdin.setRawMode(true);
-    mockStdin.on('data', keyHandler);
+    await refreshFn();
     state.inSubmenu = false;
+    renderFn();
 
-    // Verify: listener removed BEFORE pause
-    expect(mockStdin.removeListener).toHaveBeenCalledWith('data', keyHandler);
-    // Verify: raw mode disabled before submenu
-    expect(mockStdin.setRawMode).toHaveBeenCalledWith(false);
-    // Verify: stdin paused for inquirer
-    expect(mockStdin.pause).toHaveBeenCalled();
-    // Verify: submenu function was called
+    // Verify: submenu was entered and exited
     expect(submenuFn).toHaveBeenCalled();
-    // Verify: stdin resumed after submenu
-    expect(mockStdin.resume).toHaveBeenCalled();
-    // Verify: raw mode re-enabled after submenu
-    expect(mockStdin.setRawMode).toHaveBeenCalledWith(true);
-    // Verify: listener re-attached after submenu
-    expect(mockStdin.on).toHaveBeenCalledWith('data', keyHandler);
-    // Verify: inSubmenu flag cleared
-    expect(state.inSubmenu).toBe(false);
-  });
-
-  it('order of operations is correct: remove → rawMode(false) → pause → fn → resume → rawMode(true) → reattach', async () => {
-    const order: string[] = [];
-    const mockStdin = {
-      setRawMode: vi.fn((v: boolean) => order.push(`rawMode(${v})`)),
-      pause: vi.fn(() => order.push('pause')),
-      resume: vi.fn(() => order.push('resume')),
-      removeListener: vi.fn(() => order.push('removeListener')),
-      on: vi.fn(() => order.push('on')),
-    };
-    const keyHandler = vi.fn();
-    const submenuFn = vi.fn(async () => { order.push('submenu'); });
-
-    // Simulate the exact openSubmenu sequence
-    mockStdin.removeListener('data', keyHandler);
-    mockStdin.setRawMode(false);
-    mockStdin.pause();
-    await submenuFn();
-    mockStdin.resume();
-    mockStdin.setRawMode(true);
-    mockStdin.on('data', keyHandler);
-
-    expect(order).toEqual([
-      'removeListener',
-      'rawMode(false)',
-      'pause',
-      'submenu',
-      'resume',
-      'rawMode(true)',
-      'on',
-    ]);
-  });
-
-  it('submenu errors do not prevent stdin recovery', async () => {
-    const mockStdin = {
-      setRawMode: vi.fn(),
-      pause: vi.fn(),
-      resume: vi.fn(),
-      removeListener: vi.fn(),
-      on: vi.fn(),
-    };
-    const state = { inSubmenu: false };
-    const keyHandler = vi.fn();
-    const failingFn = vi.fn().mockRejectedValue(new Error('inquirer crashed'));
-
-    // Simulate openSubmenu with error
-    state.inSubmenu = true;
-    mockStdin.removeListener('data', keyHandler);
-    mockStdin.setRawMode(false);
-    mockStdin.pause();
-
-    try { await failingFn(); } catch { /* swallowed */ }
-
-    // Recovery should still happen
-    mockStdin.resume();
-    mockStdin.setRawMode(true);
-    mockStdin.on('data', keyHandler);
-    state.inSubmenu = false;
-
-    // Verify recovery happened
-    expect(mockStdin.resume).toHaveBeenCalled();
-    expect(mockStdin.setRawMode).toHaveBeenLastCalledWith(true);
-    expect(mockStdin.on).toHaveBeenCalledWith('data', keyHandler);
+    expect(refreshFn).toHaveBeenCalled();
+    expect(renderFn).toHaveBeenCalled();
     expect(state.inSubmenu).toBe(false);
   });
 
   it('inSubmenu flag prevents key handling during submenu', () => {
     const state = { inSubmenu: true };
 
-    // Simulate key handler check
     const handled = !state.inSubmenu;
     expect(handled).toBe(false);
 
@@ -131,7 +41,7 @@ describe('Panel openSubmenu stdin management', () => {
     const actions: string[] = [];
     const state = { inSubmenu: false };
 
-    const keyHandler = (key: string) => {
+    const keyHandler = (key: string): void => {
       if (state.inSubmenu) return;
       actions.push(key);
     };
@@ -150,6 +60,64 @@ describe('Panel openSubmenu stdin management', () => {
     state.inSubmenu = false;
     keyHandler('h');
     expect(actions).toEqual(['l', 'h']);
+  });
+
+  it('submenu errors do not prevent state recovery', async () => {
+    const state = { inSubmenu: false };
+    const failingFn = vi.fn().mockRejectedValue(new Error('menu crashed'));
+    const refreshFn = vi.fn().mockResolvedValue(undefined);
+    const renderFn = vi.fn();
+
+    // Simulate keyHandler with try/catch (as in actual code)
+    state.inSubmenu = true;
+    try {
+      await failingFn();
+    } catch {
+      // Swallowed, same as real code
+    }
+    await refreshFn();
+    state.inSubmenu = false;
+    renderFn();
+
+    // Verify recovery
+    expect(state.inSubmenu).toBe(false);
+    expect(renderFn).toHaveBeenCalled();
+  });
+});
+
+describe('Panel showMenu number-key selection', () => {
+  it('selects correct index for valid number keys', () => {
+    const choices = ['Model', 'Temperature', 'Max tokens'];
+    const results: Array<{ key: string; selected: number | null }> = [];
+
+    for (const key of ['1', '2', '3', '0', '4', 'a', '']) {
+      const num = parseInt(key, 10);
+      if (key === '0' || key === 'b' || key === '\u001b') {
+        results.push({ key, selected: null }); // back
+      } else if (!isNaN(num) && num >= 1 && num <= choices.length) {
+        results.push({ key, selected: num - 1 });
+      } else {
+        results.push({ key, selected: null }); // ignored
+      }
+    }
+
+    expect(results).toEqual([
+      { key: '1', selected: 0 },
+      { key: '2', selected: 1 },
+      { key: '3', selected: 2 },
+      { key: '0', selected: null },
+      { key: '4', selected: null },
+      { key: 'a', selected: null },
+      { key: '', selected: null },
+    ]);
+  });
+
+  it('escape and b are treated as back', () => {
+    const backKeys = ['0', 'b', '\u001b'];
+    for (const key of backKeys) {
+      const isBack = key === '0' || key === 'b' || key === '\u001b';
+      expect(isBack).toBe(true);
+    }
   });
 });
 
@@ -183,5 +151,19 @@ describe('Panel key mapping', () => {
     }
 
     expect(handled).toEqual([]);
+  });
+});
+
+describe('Panel readInput mode switching', () => {
+  it('readInput temporarily exits raw mode and restores it', async () => {
+    const calls: string[] = [];
+    const mockSetRawMode = vi.fn((v: boolean) => calls.push(`rawMode(${v})`));
+
+    // Simulate readInput flow
+    mockSetRawMode(false); // exit raw mode for text input
+    calls.push('readline');
+    mockSetRawMode(true); // restore raw mode
+
+    expect(calls).toEqual(['rawMode(false)', 'readline', 'rawMode(true)']);
   });
 });

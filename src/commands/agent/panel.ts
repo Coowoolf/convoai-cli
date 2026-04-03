@@ -6,6 +6,7 @@ import { gradientTitle } from '../../ui/gradient.js';
 import { printError, printSuccess } from '../../ui/output.js';
 import { shortId } from '../../utils/hints.js';
 import { LLM_PROVIDERS } from '../../providers/catalog.js';
+import { ASR_LANGUAGES } from '../../providers/catalog.js';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,68 @@ interface PanelState {
   history: HistoryEntry[];
   turns: TurnEntry[];
   inSubmenu: boolean;
+}
+
+// ─── Raw-Mode Menu Helper ──────────────────────────────────────────────────
+
+/**
+ * Render a numbered menu and wait for a single key press.
+ * Stays in raw mode the entire time. Press a number to select,
+ * 0/b/Escape to go back.
+ */
+function showMenu(
+  title: string,
+  choices: string[],
+  onSelect: (index: number) => Promise<void>,
+): Promise<void> {
+  return new Promise((resolve) => {
+    console.clear();
+    console.log('');
+    console.log(`  ${chalk.bold(title)}`);
+    console.log('');
+    choices.forEach((choice, i) => {
+      console.log(`  ${chalk.cyan(`[${i + 1}]`)} ${choice}`);
+    });
+    console.log(`  ${chalk.dim('[0]')} ${chalk.dim('Back')}`);
+    console.log('');
+
+    const handler = async (key: string): Promise<void> => {
+      const num = parseInt(key, 10);
+      if (key === '0' || key === 'b' || key === '\u001b') {
+        process.stdin.removeListener('data', handler);
+        resolve();
+        return;
+      }
+      if (!isNaN(num) && num >= 1 && num <= choices.length) {
+        process.stdin.removeListener('data', handler);
+        await onSelect(num - 1);
+        resolve();
+      }
+      // Ignore invalid keys silently
+    };
+    process.stdin.on('data', handler);
+  });
+}
+
+// ─── Raw-Mode Text Input Helper ────────────────────────────────────────────
+
+/**
+ * Temporarily exit raw mode so the user can type a full line of text.
+ * Re-enters raw mode after the line is read.
+ */
+function readInput(prompt: string): Promise<string> {
+  return new Promise((resolve) => {
+    process.stdin.setRawMode(false);
+    process.stdout.write(`  ${prompt}: `);
+
+    const onData = (data: Buffer): void => {
+      const text = data.toString().trim();
+      process.stdin.removeListener('data', onData);
+      process.stdin.setRawMode(true);
+      resolve(text);
+    };
+    process.stdin.on('data', onData);
+  });
 }
 
 // ─── Entry Point ────────────────────────────────────────────────────────────
@@ -43,7 +106,7 @@ export async function runPanel(opts: PanelOpts): Promise<void> {
     render(opts, state, str);
   }, 3000);
 
-  // Keyboard handling
+  // Keyboard handling — raw mode stays on for the entire session
   const stdin = process.stdin;
   stdin.setRawMode(true);
   stdin.resume();
@@ -74,23 +137,37 @@ export async function runPanel(opts: PanelOpts): Promise<void> {
 
     switch (key) {
       case 'l':
-        await openSubmenu(state, stdin, () => llmMenu(opts, state, str), keyHandler);
+        state.inSubmenu = true;
+        await llmMenu(opts, state, str);
+        await refreshData(opts, state);
+        state.inSubmenu = false;
         render(opts, state, str);
         break;
       case 'a':
-        await openSubmenu(state, stdin, () => asrMenu(opts, str), keyHandler);
+        state.inSubmenu = true;
+        await asrMenu(opts, state, str);
+        await refreshData(opts, state);
+        state.inSubmenu = false;
         render(opts, state, str);
         break;
       case 't':
-        await openSubmenu(state, stdin, () => ttsMenu(opts, str), keyHandler);
+        state.inSubmenu = true;
+        await ttsMenu(opts, state, str);
+        await refreshData(opts, state);
+        state.inSubmenu = false;
         render(opts, state, str);
         break;
       case 'v':
-        await openSubmenu(state, stdin, () => vadMenu(str), keyHandler);
+        state.inSubmenu = true;
+        await vadMenu(opts, state, str);
+        await refreshData(opts, state);
+        state.inSubmenu = false;
         render(opts, state, str);
         break;
       case 'h':
-        await openSubmenu(state, stdin, () => historyView(opts, state, str), keyHandler);
+        state.inSubmenu = true;
+        await historyView(opts, state, str);
+        state.inSubmenu = false;
         render(opts, state, str);
         break;
       case 'q':
@@ -107,34 +184,6 @@ export async function runPanel(opts: PanelOpts): Promise<void> {
   };
 
   stdin.on('data', keyHandler);
-}
-
-// ─── Submenu Helper ─────────────────────────────────────────────────────────
-
-async function openSubmenu(
-  state: PanelState,
-  stdin: NodeJS.ReadStream,
-  fn: () => Promise<void>,
-  keyHandler: (key: string) => void,
-): Promise<void> {
-  state.inSubmenu = true;
-
-  // Fully release stdin so inquirer can take over
-  stdin.removeListener('data', keyHandler);
-  stdin.setRawMode(false);
-  stdin.pause();
-
-  try {
-    await fn();
-  } catch {
-    // Swallow prompt errors (e.g. user force-cancels)
-  }
-
-  // Reclaim stdin for single-key detection
-  stdin.resume();
-  stdin.setRawMode(true);
-  stdin.on('data', keyHandler);
-  state.inSubmenu = false;
 }
 
 // ─── Data Refresh ───────────────────────────────────────────────────────────
@@ -224,39 +273,38 @@ async function llmMenu(
   state: PanelState,
   str: ReturnType<typeof getStrings>,
 ): Promise<void> {
-  const { default: inquirer } = await import('inquirer');
-
-  const { action } = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'action',
-      message: str.panelAdjust,
-      choices: [
-        { name: str.panelSwitchModel, value: 'model' },
-        { name: str.panelSwitchVendor, value: 'vendor' },
-        { name: str.panelTemperature, value: 'temperature' },
-        { name: str.panelMaxTokens, value: 'max_tokens' },
-        { name: str.panelSystemPrompt, value: 'system_prompt' },
-        { name: str.panelBack, value: 'back' },
-      ],
+  await showMenu(
+    str.panelAdjust + ' — LLM',
+    [
+      str.panelSwitchModel,
+      str.panelTemperature,
+      str.panelMaxTokens,
+      str.panelSystemPrompt,
+      `${str.panelSwitchVendor} ${chalk.dim('(requires restart)')}`,
+    ],
+    async (index) => {
+      switch (index) {
+        case 0:
+          await switchModel(opts, str);
+          break;
+        case 1:
+          await adjustTemperature(opts, str);
+          break;
+        case 2:
+          await adjustMaxTokens(opts, str);
+          break;
+        case 3:
+          await editSystemPrompt(opts, str);
+          break;
+        case 4:
+          console.log('');
+          printError(str.panelRestartWarning);
+          await pause();
+          break;
+      }
     },
-  ]);
+  );
 
-  if (action === 'back') return;
-
-  if (action === 'model') {
-    await switchModel(opts, str);
-  } else if (action === 'vendor') {
-    printError(str.panelRestartWarning);
-  } else if (action === 'temperature') {
-    await adjustTemperature(opts, str);
-  } else if (action === 'max_tokens') {
-    await adjustMaxTokens(opts, str);
-  } else if (action === 'system_prompt') {
-    await editSystemPrompt(opts, str);
-  }
-
-  // Refresh data after changes
   await refreshData(opts, state);
 }
 
@@ -264,64 +312,64 @@ async function switchModel(
   opts: PanelOpts,
   str: ReturnType<typeof getStrings>,
 ): Promise<void> {
-  const { default: inquirer } = await import('inquirer');
-
   const currentVendor = opts.config.llm?.vendor ?? 'openai';
   const provider = LLM_PROVIDERS.find((p) => p.value === currentVendor);
   const models = provider?.models ?? [];
 
   if (models.length === 0) {
+    console.log('');
     printError('No models available for current provider.');
+    await pause();
     return;
   }
 
   const currentModel = opts.config.llm?.params?.model ?? opts.config.llm?.model;
 
-  const { model } = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'model',
-      message: `${str.panelSwitchModel} (${str.panelCurrent}: ${currentModel ?? 'unknown'})`,
-      choices: models.map((m) => ({ name: m, value: m })),
+  await showMenu(
+    `${str.panelSwitchModel} (${str.panelCurrent}: ${currentModel ?? 'unknown'})`,
+    models,
+    async (index) => {
+      const model = models[index];
+      try {
+        await opts.api.update(opts.agentId, {
+          properties: { llm: { params: { model } } },
+        });
+        if (!opts.config.llm) opts.config.llm = {};
+        if (!opts.config.llm.params) opts.config.llm.params = {};
+        opts.config.llm.params.model = model;
+        console.log('');
+        printSuccess(`${str.panelUpdated}: model = ${model}`);
+        await pause();
+      } catch (err) {
+        console.log('');
+        printError(`Failed to update model: ${err instanceof Error ? err.message : String(err)}`);
+        await pause();
+      }
     },
-  ]);
-
-  try {
-    await opts.api.update(opts.agentId, {
-      properties: { llm: { params: { model } } },
-    });
-    // Update local config state
-    if (!opts.config.llm) opts.config.llm = {};
-    if (!opts.config.llm.params) opts.config.llm.params = {};
-    opts.config.llm.params.model = model;
-    printSuccess(`${str.panelUpdated}: model = ${model}`);
-  } catch (err) {
-    printError(`Failed to update model: ${err instanceof Error ? err.message : String(err)}`);
-  }
+  );
 }
 
 async function adjustTemperature(
   opts: PanelOpts,
   str: ReturnType<typeof getStrings>,
 ): Promise<void> {
-  const { default: inquirer } = await import('inquirer');
-
   const current = opts.config.llm?.params?.temperature;
 
-  const { value } = await inquirer.prompt([
-    {
-      type: 'input',
-      name: 'value',
-      message: `${str.panelTemperature} (${str.panelCurrent}: ${current ?? 'default'}, ${str.panelRange}: 0-2)`,
-      validate: (input: string) => {
-        const n = parseFloat(input);
-        if (Number.isNaN(n) || n < 0 || n > 2) return 'Enter a number between 0 and 2';
-        return true;
-      },
-    },
-  ]);
+  console.clear();
+  console.log('');
+  console.log(`  ${chalk.bold(str.panelTemperature)}`);
+  console.log(`  ${chalk.dim(`${str.panelCurrent}: ${current ?? 'default'}, ${str.panelRange}: 0-2`)}`);
+  console.log('');
+
+  const value = await readInput('temperature');
+  if (!value) return;
 
   const temperature = parseFloat(value);
+  if (isNaN(temperature) || temperature < 0 || temperature > 2) {
+    printError('Enter a number between 0 and 2');
+    await pause();
+    return;
+  }
 
   try {
     await opts.api.update(opts.agentId, {
@@ -331,8 +379,10 @@ async function adjustTemperature(
     if (!opts.config.llm.params) opts.config.llm.params = {};
     opts.config.llm.params.temperature = temperature;
     printSuccess(`${str.panelUpdated}: temperature = ${temperature}`);
+    await pause();
   } catch (err) {
     printError(`Failed to update temperature: ${err instanceof Error ? err.message : String(err)}`);
+    await pause();
   }
 }
 
@@ -340,24 +390,23 @@ async function adjustMaxTokens(
   opts: PanelOpts,
   str: ReturnType<typeof getStrings>,
 ): Promise<void> {
-  const { default: inquirer } = await import('inquirer');
-
   const current = opts.config.llm?.params?.max_tokens;
 
-  const { value } = await inquirer.prompt([
-    {
-      type: 'input',
-      name: 'value',
-      message: `${str.panelMaxTokens} (${str.panelCurrent}: ${current ?? 'default'})`,
-      validate: (input: string) => {
-        const n = parseInt(input, 10);
-        if (Number.isNaN(n) || n < 1) return 'Enter a positive integer';
-        return true;
-      },
-    },
-  ]);
+  console.clear();
+  console.log('');
+  console.log(`  ${chalk.bold(str.panelMaxTokens)}`);
+  console.log(`  ${chalk.dim(`${str.panelCurrent}: ${current ?? 'default'}`)}`);
+  console.log('');
+
+  const value = await readInput('max_tokens');
+  if (!value) return;
 
   const maxTokens = parseInt(value, 10);
+  if (isNaN(maxTokens) || maxTokens < 1) {
+    printError('Enter a positive integer');
+    await pause();
+    return;
+  }
 
   try {
     await opts.api.update(opts.agentId, {
@@ -367,8 +416,10 @@ async function adjustMaxTokens(
     if (!opts.config.llm.params) opts.config.llm.params = {};
     opts.config.llm.params.max_tokens = maxTokens;
     printSuccess(`${str.panelUpdated}: max_tokens = ${maxTokens}`);
+    await pause();
   } catch (err) {
     printError(`Failed to update max_tokens: ${err instanceof Error ? err.message : String(err)}`);
+    await pause();
   }
 }
 
@@ -376,16 +427,12 @@ async function editSystemPrompt(
   opts: PanelOpts,
   str: ReturnType<typeof getStrings>,
 ): Promise<void> {
-  const { default: inquirer } = await import('inquirer');
+  console.clear();
+  console.log('');
+  console.log(`  ${chalk.bold(str.panelSystemPrompt)}`);
+  console.log('');
 
-  const { value } = await inquirer.prompt([
-    {
-      type: 'input',
-      name: 'value',
-      message: str.panelSystemPrompt,
-    },
-  ]);
-
+  const value = await readInput('system prompt');
   if (!value) return;
 
   try {
@@ -397,8 +444,10 @@ async function editSystemPrompt(
       },
     });
     printSuccess(`${str.panelUpdated}: system prompt`);
+    await pause();
   } catch (err) {
     printError(`Failed to update system prompt: ${err instanceof Error ? err.message : String(err)}`);
+    await pause();
   }
 }
 
@@ -406,88 +455,94 @@ async function editSystemPrompt(
 
 async function asrMenu(
   opts: PanelOpts,
+  _state: PanelState,
   str: ReturnType<typeof getStrings>,
 ): Promise<void> {
-  const { default: inquirer } = await import('inquirer');
+  const currentLang = opts.config.asr?.language ?? opts.config.asr?.params?.language ?? 'en-US';
 
-  const { action } = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'action',
-      message: str.panelAdjust,
-      choices: [
-        { name: str.panelSwitchLang, value: 'lang' },
-        { name: str.panelSwitchVendor, value: 'vendor' },
-        { name: str.panelBack, value: 'back' },
-      ],
+  await showMenu(
+    `ASR Settings (${str.panelCurrent}: ${currentLang})`,
+    [
+      str.panelSwitchLang,
+      `${str.panelSwitchVendor} ${chalk.dim('(requires restart)')}`,
+    ],
+    async (index) => {
+      if (index === 0) {
+        await switchLanguage(opts, str);
+      } else {
+        console.log('');
+        printError(str.panelRestartWarning);
+        await pause();
+      }
     },
-  ]);
+  );
+}
 
-  if (action === 'back') return;
+async function switchLanguage(
+  opts: PanelOpts,
+  str: ReturnType<typeof getStrings>,
+): Promise<void> {
+  const currentLang = opts.config.asr?.language ?? opts.config.asr?.params?.language ?? 'en-US';
+  const langChoices = ASR_LANGUAGES.map((l) => `${l.name} (${l.value})`);
 
-  // Both ASR changes require restart
-  printError(str.panelRestartWarning);
+  await showMenu(
+    `${str.panelSwitchLang} (${str.panelCurrent}: ${currentLang})`,
+    langChoices,
+    async (_index) => {
+      // ASR language change requires restart
+      console.log('');
+      printError(str.panelRestartWarning);
+      await pause();
+    },
+  );
 }
 
 // ─── TTS Sub-Menu ───────────────────────────────────────────────────────────
 
 async function ttsMenu(
   opts: PanelOpts,
+  _state: PanelState,
   str: ReturnType<typeof getStrings>,
 ): Promise<void> {
-  const { default: inquirer } = await import('inquirer');
+  const ttsVendor = opts.config.tts?.vendor ?? 'unknown';
 
-  const { action } = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'action',
-      message: str.panelAdjust,
-      choices: [
-        { name: str.panelSwitchVendor, value: 'vendor' },
-        { name: str.panelSpeed, value: 'speed' },
-        { name: str.panelVolume, value: 'volume' },
-        { name: str.panelBack, value: 'back' },
-      ],
+  await showMenu(
+    `TTS Settings (${str.panelCurrent}: ${ttsVendor})`,
+    [
+      `${str.panelSwitchVendor} ${chalk.dim('(requires restart)')}`,
+      `${str.panelSpeed} ${chalk.dim('(requires restart)')}`,
+      `${str.panelVolume} ${chalk.dim('(requires restart)')}`,
+    ],
+    async (_index) => {
+      // All TTS changes require restart
+      console.log('');
+      printError(str.panelRestartWarning);
+      await pause();
     },
-  ]);
-
-  if (action === 'back') return;
-
-  if (action === 'vendor') {
-    // TTS vendor change requires restart
-    printError(str.panelRestartWarning);
-  } else {
-    // Speed/volume: TTS params are not in UpdateAgentRequest (only token + llm)
-    // so these also require restart for now
-    printError(str.panelRestartWarning);
-  }
+  );
 }
 
 // ─── VAD Sub-Menu ───────────────────────────────────────────────────────────
 
 async function vadMenu(
+  _opts: PanelOpts,
+  _state: PanelState,
   str: ReturnType<typeof getStrings>,
 ): Promise<void> {
-  const { default: inquirer } = await import('inquirer');
-
-  const { action } = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'action',
-      message: str.panelAdjust,
-      choices: [
-        { name: str.panelSilenceDuration, value: 'silence' },
-        { name: str.panelInterruptDuration, value: 'interrupt_dur' },
-        { name: str.panelInterruptMode, value: 'interrupt_mode' },
-        { name: str.panelBack, value: 'back' },
-      ],
+  await showMenu(
+    'VAD Settings',
+    [
+      `${str.panelSilenceDuration} ${chalk.dim('(current: 1000ms) (requires restart)')}`,
+      `${str.panelInterruptDuration} ${chalk.dim('(current: 160ms) (requires restart)')}`,
+      `${str.panelInterruptMode} ${chalk.dim('(current: interrupt) (requires restart)')}`,
+    ],
+    async (_index) => {
+      // All VAD changes require restart
+      console.log('');
+      printError(str.panelRestartWarning);
+      await pause();
     },
-  ]);
-
-  if (action === 'back') return;
-
-  // All VAD changes require restart
-  printError(str.panelRestartWarning);
+  );
 }
 
 // ─── History View ───────────────────────────────────────────────────────────
@@ -523,22 +578,32 @@ async function historyView(
   }
 
   console.log();
-  console.log(chalk.dim(`  ${state.history.length} entries total. Press any key to return.`));
+  console.log(chalk.dim(`  ${state.history.length} entries total.`));
+  console.log(`  ${chalk.dim('[0]')} ${chalk.dim('Back')}`);
+  console.log('');
 
-  // Wait for any keypress
-  await waitForKeypress();
+  // Wait for any key to return (already in raw mode)
+  await new Promise<void>((resolve) => {
+    const handler = (key: string): void => {
+      process.stdin.removeListener('data', handler);
+      // Suppress unused variable — any key returns
+      void key;
+      resolve();
+    };
+    process.stdin.on('data', handler);
+  });
 }
 
-function waitForKeypress(): Promise<void> {
+// ─── Pause (wait for any key) ──────────────────────────────────────────────
+
+function pause(): Promise<void> {
   return new Promise((resolve) => {
-    const stdin = process.stdin;
-    stdin.setRawMode(true);
-    stdin.resume();
-    stdin.once('data', () => {
-      stdin.setRawMode(false);
-      stdin.pause();
+    console.log(chalk.dim('  Press any key to continue...'));
+    const handler = (): void => {
+      process.stdin.removeListener('data', handler);
       resolve();
-    });
+    };
+    process.stdin.on('data', handler);
   });
 }
 
