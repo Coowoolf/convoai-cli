@@ -488,11 +488,26 @@ async function switchLanguage(
   await showMenu(
     `${str.panelSwitchLang} (${str.panelCurrent}: ${currentLang})`,
     langChoices,
-    async (_index) => {
-      // ASR language change requires restart
-      console.log('');
-      printError(str.panelRestartWarning);
-      await pause();
+    async (index) => {
+      const selected = ASR_LANGUAGES[index];
+      if (selected) {
+        if (!opts.config.asr) opts.config.asr = {};
+        opts.config.asr.language = selected.value;
+        try {
+          const { loadConfig, saveConfig } = await import('../../config/manager.js');
+          const cfg = loadConfig();
+          const profile = cfg.profiles?.[cfg.default_profile ?? 'default'];
+          if (profile) {
+            if (!profile.asr) profile.asr = {};
+            profile.asr.language = selected.value;
+            saveConfig(cfg);
+          }
+        } catch {}
+        console.log('');
+        printSuccess(`${str.panelUpdated}: language = ${selected.value}`);
+        console.log(chalk.dim(`  ${opts.lang === 'cn' ? '下次 convoai go 生效' : 'Takes effect next convoai go'}`));
+        await pause();
+      }
     },
   );
 }
@@ -525,22 +540,95 @@ async function ttsMenu(
 // ─── VAD Sub-Menu ───────────────────────────────────────────────────────────
 
 async function vadMenu(
-  _opts: PanelOpts,
+  opts: PanelOpts,
   _state: PanelState,
   str: ReturnType<typeof getStrings>,
 ): Promise<void> {
+  const currentSilence = opts.config.turn_detection?.silence_duration_ms ?? 1000;
+  const currentInterrupt = opts.config.turn_detection?.interrupt_duration_ms ?? 160;
+  const currentMode = opts.config.turn_detection?.interrupt_mode ?? 'interrupt';
+
   await showMenu(
     'VAD Settings',
     [
-      `${str.panelSilenceDuration} ${chalk.dim('(current: 1000ms) (requires restart)')}`,
-      `${str.panelInterruptDuration} ${chalk.dim('(current: 160ms) (requires restart)')}`,
-      `${str.panelInterruptMode} ${chalk.dim('(current: interrupt) (requires restart)')}`,
+      `${str.panelSilenceDuration} (${str.panelCurrent}: ${currentSilence}ms)`,
+      `${str.panelInterruptDuration} (${str.panelCurrent}: ${currentInterrupt}ms)`,
+      `${str.panelInterruptMode} (${str.panelCurrent}: ${currentMode})`,
     ],
-    async (_index) => {
-      // All VAD changes require restart
-      console.log('');
-      printError(str.panelRestartWarning);
-      await pause();
+    async (index) => {
+      if (index === 0) {
+        // Silence duration
+        const val = await readInput(`${str.panelSilenceDuration} (200-3000ms)`);
+        const n = parseInt(val, 10);
+        if (!isNaN(n) && n >= 200 && n <= 3000) {
+          // Save to config for next session
+          if (!opts.config.turn_detection) (opts.config as any).turn_detection = {};
+          (opts.config as any).turn_detection.silence_duration_ms = n;
+          try {
+            const { loadConfig, saveConfig } = await import('../../config/manager.js');
+            const cfg = loadConfig();
+            const profile = cfg.profiles?.[cfg.default_profile ?? 'default'];
+            if (profile) {
+              (profile as any).turn_detection = { ...((profile as any).turn_detection ?? {}), silence_duration_ms: n };
+              saveConfig(cfg);
+            }
+          } catch {}
+          console.log('');
+          printSuccess(`${str.panelUpdated}: silence_duration = ${n}ms`);
+          console.log(chalk.dim(`  ${opts.lang === 'cn' ? '下次 convoai go 生效' : 'Takes effect next convoai go'}`));
+          await pause();
+        }
+      } else if (index === 1) {
+        // Interrupt duration
+        const val = await readInput(`${str.panelInterruptDuration} (50-1000ms)`);
+        const n = parseInt(val, 10);
+        if (!isNaN(n) && n >= 50 && n <= 1000) {
+          if (!opts.config.turn_detection) (opts.config as any).turn_detection = {};
+          (opts.config as any).turn_detection.interrupt_duration_ms = n;
+          try {
+            const { loadConfig, saveConfig } = await import('../../config/manager.js');
+            const cfg = loadConfig();
+            const profile = cfg.profiles?.[cfg.default_profile ?? 'default'];
+            if (profile) {
+              (profile as any).turn_detection = { ...((profile as any).turn_detection ?? {}), interrupt_duration_ms: n };
+              saveConfig(cfg);
+            }
+          } catch {}
+          console.log('');
+          printSuccess(`${str.panelUpdated}: interrupt_duration = ${n}ms`);
+          console.log(chalk.dim(`  ${opts.lang === 'cn' ? '下次 convoai go 生效' : 'Takes effect next convoai go'}`));
+          await pause();
+        }
+      } else if (index === 2) {
+        // Interrupt mode
+        await showMenu(
+          `${str.panelInterruptMode} (${str.panelCurrent}: ${currentMode})`,
+          [
+            `interrupt ${chalk.dim(opts.lang === 'cn' ? '— 用户说话立刻打断 Agent' : '— Interrupt agent immediately')}`,
+            `append ${chalk.dim(opts.lang === 'cn' ? '— Agent 说完再处理' : '— Wait for agent to finish')}`,
+            `ignore ${chalk.dim(opts.lang === 'cn' ? '— Agent 说话时忽略输入' : '— Ignore user during agent speech')}`,
+          ],
+          async (modeIdx) => {
+            const modes = ['interrupt', 'append', 'ignore'];
+            const mode = modes[modeIdx];
+            if (!opts.config.turn_detection) (opts.config as any).turn_detection = {};
+            (opts.config as any).turn_detection.interrupt_mode = mode;
+            try {
+              const { loadConfig, saveConfig } = await import('../../config/manager.js');
+              const cfg = loadConfig();
+              const profile = cfg.profiles?.[cfg.default_profile ?? 'default'];
+              if (profile) {
+                (profile as any).turn_detection = { ...((profile as any).turn_detection ?? {}), interrupt_mode: mode };
+                saveConfig(cfg);
+              }
+            } catch {}
+            console.log('');
+            printSuccess(`${str.panelUpdated}: interrupt_mode = ${mode}`);
+            console.log(chalk.dim(`  ${opts.lang === 'cn' ? '下次 convoai go 生效' : 'Takes effect next convoai go'}`));
+            await pause();
+          },
+        );
+      }
     },
   );
 }

@@ -290,4 +290,5 @@ export interface ProfileConfig {
   llm?: Partial<LLMConfig>;
   tts?: Partial<TTSConfig>;
   asr?: Partial<ASRConfig>;
+  turn_detection?: Partial<TurnDetection>;
 }
