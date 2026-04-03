@@ -476,13 +476,18 @@ async function openclawAction(opts: {
   // ── Enter panel with PTT enabled ──────────────────────────────────────────
   const lang: 'cn' | 'global' = config.region === 'cn' ? 'cn' : 'global';
 
+  // Override config display for panel — show "openclaw" instead of config's LLM model
+  const panelConfig = { ...config };
+  if (!panelConfig.llm) panelConfig.llm = {};
+  panelConfig.llm = { ...panelConfig.llm, params: { ...panelConfig.llm.params, model: '🦞 openclaw' } };
+
   await runPanel({
     api,
     agentId: result.agent_id,
     channel: opts.channel,
     lang,
-    config,
-    ptt: !!chromePath, // PTT only in terminal mode
+    config: panelConfig,
+    ptt: !!chromePath,
     wsBroadcast,
     _sharedState: panelState,
     onExit: async () => {

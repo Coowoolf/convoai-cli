@@ -122,22 +122,15 @@ export async function runPanel(opts: PanelOpts): Promise<void> {
   await refreshData(opts, state);
   printNewMessages(state, str);
 
-  // Auto-refresh: if live transcript active, only poll turns for latency stats
-  // If no live transcript (fallback), poll history + turns
+  // Always poll history + turns as fallback (printedCount prevents duplicates)
   const pollTimer = setInterval(async () => {
     if (state.inSubmenu) return;
-    if (state.hasLiveTranscript) {
-      // Only poll turns for latency stats, transcript comes via WebSocket
-      try {
-        const turnsRes = await opts.api.turns(opts.agentId).catch(() => null);
-        if (turnsRes) state.turns = turnsRes.turns ?? [];
-      } catch {}
-    } else {
-      // Fallback: poll history + turns
-      await refreshData(opts, state);
+    await refreshData(opts, state);
+    // Only print from polling if live transcript hasn't printed them already
+    if (!state.hasLiveTranscript) {
       printNewMessages(state, str);
     }
-  }, 1000);
+  }, 2000);
 
   // Keyboard handling — raw mode stays on for the entire session
   const stdin = process.stdin;
