@@ -460,19 +460,45 @@ async function asrMenu(
 ): Promise<void> {
   const currentLang = opts.config.asr?.language ?? opts.config.asr?.params?.language ?? 'en-US';
 
+  const asrVendor = opts.config.asr?.vendor ?? 'ares';
+  const nextHint = opts.lang === 'cn' ? '下次 convoai go 生效' : 'Takes effect next convoai go';
+
   await showMenu(
-    `ASR Settings (${str.panelCurrent}: ${currentLang})`,
+    `ASR Settings (${str.panelCurrent}: ${asrVendor} / ${currentLang})`,
     [
       str.panelSwitchLang,
-      `${str.panelSwitchVendor} ${chalk.dim('(requires restart)')}`,
+      str.panelSwitchVendor,
     ],
     async (index) => {
       if (index === 0) {
         await switchLanguage(opts, str);
       } else {
-        console.log('');
-        printError(str.panelRestartWarning);
-        await pause();
+        // Switch ASR vendor
+        const { ASR_PROVIDERS } = await import('../../providers/catalog.js');
+        const vendorNames = ASR_PROVIDERS.map(p => p.beta ? `${p.name} (Beta)` : p.name);
+        await showMenu(
+          `${str.panelSwitchVendor} (${str.panelCurrent}: ${asrVendor})`,
+          vendorNames,
+          async (vIdx) => {
+            const selected = ASR_PROVIDERS[vIdx];
+            if (!opts.config.asr) opts.config.asr = {};
+            opts.config.asr.vendor = selected.vendor;
+            try {
+              const { loadConfig, saveConfig } = await import('../../config/manager.js');
+              const cfg = loadConfig();
+              const profile = cfg.profiles?.[cfg.default_profile ?? 'default'];
+              if (profile) {
+                if (!profile.asr) profile.asr = {};
+                profile.asr.vendor = selected.vendor;
+                saveConfig(cfg);
+              }
+            } catch {}
+            console.log('');
+            printSuccess(`${str.panelUpdated}: ASR = ${selected.name}`);
+            console.log(chalk.dim(`  ${nextHint}`));
+            await pause();
+          },
+        );
       }
     },
   );
@@ -520,19 +546,90 @@ async function ttsMenu(
   str: ReturnType<typeof getStrings>,
 ): Promise<void> {
   const ttsVendor = opts.config.tts?.vendor ?? 'unknown';
+  const nextHint = opts.lang === 'cn' ? '下次 convoai go 生效' : 'Takes effect next convoai go';
 
   await showMenu(
     `TTS Settings (${str.panelCurrent}: ${ttsVendor})`,
     [
-      `${str.panelSwitchVendor} ${chalk.dim('(requires restart)')}`,
-      `${str.panelSpeed} ${chalk.dim('(requires restart)')}`,
-      `${str.panelVolume} ${chalk.dim('(requires restart)')}`,
+      str.panelSwitchVendor,
+      str.panelSpeed,
+      str.panelVolume,
     ],
-    async (_index) => {
-      // All TTS changes require restart
-      console.log('');
-      printError(str.panelRestartWarning);
-      await pause();
+    async (index) => {
+      if (index === 0) {
+        // Switch vendor — list all TTS providers
+        const { TTS_PROVIDERS } = await import('../../providers/catalog.js');
+        const vendorNames = TTS_PROVIDERS.map(p => p.beta ? `${p.name} (Beta)` : p.name);
+        await showMenu(
+          `${str.panelSwitchVendor} (${str.panelCurrent}: ${ttsVendor})`,
+          vendorNames,
+          async (vIdx) => {
+            const selected = TTS_PROVIDERS[vIdx];
+            if (!opts.config.tts) opts.config.tts = {};
+            opts.config.tts.vendor = selected.vendor;
+            try {
+              const { loadConfig, saveConfig } = await import('../../config/manager.js');
+              const cfg = loadConfig();
+              const profile = cfg.profiles?.[cfg.default_profile ?? 'default'];
+              if (profile) {
+                if (!profile.tts) profile.tts = {};
+                profile.tts.vendor = selected.vendor;
+                saveConfig(cfg);
+              }
+            } catch {}
+            console.log('');
+            printSuccess(`${str.panelUpdated}: TTS = ${selected.name}`);
+            console.log(chalk.dim(`  ${nextHint}`));
+            await pause();
+          },
+        );
+      } else if (index === 1) {
+        // Speed
+        const val = await readInput(`${str.panelSpeed} (0.5-2.0)`);
+        const n = parseFloat(val);
+        if (!isNaN(n) && n >= 0.5 && n <= 2.0) {
+          if (!opts.config.tts) opts.config.tts = {};
+          if (!opts.config.tts.params) opts.config.tts.params = {};
+          opts.config.tts.params.speed = n;
+          try {
+            const { loadConfig, saveConfig } = await import('../../config/manager.js');
+            const cfg = loadConfig();
+            const profile = cfg.profiles?.[cfg.default_profile ?? 'default'];
+            if (profile?.tts) {
+              if (!profile.tts.params) profile.tts.params = {};
+              profile.tts.params.speed = n;
+              saveConfig(cfg);
+            }
+          } catch {}
+          console.log('');
+          printSuccess(`${str.panelUpdated}: speed = ${n}`);
+          console.log(chalk.dim(`  ${nextHint}`));
+          await pause();
+        }
+      } else if (index === 2) {
+        // Volume
+        const val = await readInput(`${str.panelVolume} (0-100)`);
+        const n = parseInt(val, 10);
+        if (!isNaN(n) && n >= 0 && n <= 100) {
+          if (!opts.config.tts) opts.config.tts = {};
+          if (!opts.config.tts.params) opts.config.tts.params = {};
+          opts.config.tts.params.volume = n;
+          try {
+            const { loadConfig, saveConfig } = await import('../../config/manager.js');
+            const cfg = loadConfig();
+            const profile = cfg.profiles?.[cfg.default_profile ?? 'default'];
+            if (profile?.tts) {
+              if (!profile.tts.params) profile.tts.params = {};
+              profile.tts.params.volume = n;
+              saveConfig(cfg);
+            }
+          } catch {}
+          console.log('');
+          printSuccess(`${str.panelUpdated}: volume = ${n}`);
+          console.log(chalk.dim(`  ${nextHint}`));
+          await pause();
+        }
+      }
     },
   );
 }
