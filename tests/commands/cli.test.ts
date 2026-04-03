@@ -20,14 +20,13 @@ describe('CLI Integration', () => {
 
   it('shows help with --help', () => {
     const output = cli('--help');
-    expect(output).toContain('convoai');
-    expect(output).toContain('auth');
+    expect(output).toContain('Start:');
+    expect(output).toContain('Agent:');
+    expect(output).toContain('Config:');
+    expect(output).toContain('go');
+    expect(output).toContain('quickstart');
     expect(output).toContain('agent');
     expect(output).toContain('config');
-    expect(output).toContain('preset');
-    expect(output).toContain('template');
-    expect(output).toContain('completion');
-    expect(output).toContain('repl');
   });
 
   it('shows agent help', () => {
@@ -41,7 +40,7 @@ describe('CLI Integration', () => {
     expect(output).toContain('interrupt');
     expect(output).toContain('history');
     expect(output).toContain('turns');
-    expect(output).toContain('watch');
+    expect(output).toContain('join');
   });
 
   it('shows agent start help with all flags', () => {

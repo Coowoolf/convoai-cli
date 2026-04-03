@@ -42,9 +42,9 @@ describe('CLI extended integration tests', () => {
   // ── Top-level help: new commands visible ──────────────────────────────────
 
   describe('convoai --help includes all commands', () => {
-    it('shows chat command', () => {
+    it('shows go command', () => {
       const output = cli('--help');
-      expect(output).toContain('chat');
+      expect(output).toContain('go');
     });
 
     it('shows quickstart command', () => {
@@ -82,80 +82,49 @@ describe('CLI extended integration tests', () => {
       expect(output).toContain('template');
     });
 
-    it('shows repl command', () => {
-      const output = cli('--help');
-      expect(output).toContain('repl');
-    });
-
     it('shows completion command', () => {
       const output = cli('--help');
       expect(output).toContain('completion');
     });
   });
 
-  // ── convoai chat --help ────────────────────────────────────────────────────
+  // ── convoai go --help ──────────────────────────────────────────────────────
 
-  describe('convoai chat --help', () => {
+  describe('convoai go --help', () => {
     it('shows --channel flag', () => {
-      const output = cli('chat --help');
+      const output = cli('go --help');
       expect(output).toContain('--channel');
       expect(output).toContain('-c');
     });
 
-    it('shows --preset flag', () => {
-      const output = cli('chat --help');
-      expect(output).toContain('--preset');
+    it('shows --setup flag', () => {
+      const output = cli('go --help');
+      expect(output).toContain('--setup');
     });
 
     it('shows --model flag', () => {
-      const output = cli('chat --help');
+      const output = cli('go --help');
       expect(output).toContain('--model');
     });
 
     it('shows --tts flag', () => {
-      const output = cli('chat --help');
+      const output = cli('go --help');
       expect(output).toContain('--tts');
     });
 
     it('shows --asr flag', () => {
-      const output = cli('chat --help');
+      const output = cli('go --help');
       expect(output).toContain('--asr');
     });
 
-    it('shows --system-message flag', () => {
-      const output = cli('chat --help');
-      expect(output).toContain('--system-message');
-    });
-
-    it('shows --greeting flag', () => {
-      const output = cli('chat --help');
-      expect(output).toContain('--greeting');
-    });
-
-    it('shows --idle-timeout flag', () => {
-      const output = cli('chat --help');
-      expect(output).toContain('--idle-timeout');
+    it('shows --browser flag', () => {
+      const output = cli('go --help');
+      expect(output).toContain('--browser');
     });
 
     it('shows --profile flag', () => {
-      const output = cli('chat --help');
+      const output = cli('go --help');
       expect(output).toContain('--profile');
-    });
-  });
-
-  // ── convoai agent chat --help ──────────────────────────────────────────────
-
-  describe('convoai agent chat --help', () => {
-    it('works and shows flags', () => {
-      const output = cli('agent chat --help');
-      expect(output).toContain('--channel');
-      expect(output).toContain('--preset');
-      expect(output).toContain('--model');
-    });
-
-    it('shows voice chat description', () => {
-      const output = cli('agent chat --help');
-      expect(output.toLowerCase()).toContain('voice chat');
     });
   });
 
@@ -218,19 +187,9 @@ describe('CLI extended integration tests', () => {
   // ── agent subcommands include new ones ────────────────────────────────────
 
   describe('convoai agent --help includes new subcommands', () => {
-    it('includes chat subcommand', () => {
-      const output = cli('agent --help');
-      expect(output).toContain('chat');
-    });
-
     it('includes join subcommand', () => {
       const output = cli('agent --help');
       expect(output).toContain('join');
-    });
-
-    it('includes watch subcommand', () => {
-      const output = cli('agent --help');
-      expect(output).toContain('watch');
     });
 
     it('includes history subcommand', () => {
@@ -250,12 +209,6 @@ describe('CLI extended integration tests', () => {
     it('shows error for unknown command', () => {
       const output = cli('nonexistent');
       expect(output).toBeTruthy();
-    });
-
-    it('shows error for chat without required --channel', () => {
-      const output = cli('chat');
-      // Commander should indicate the required option is missing
-      expect(output).toContain('channel');
     });
 
     it('shows error for token without required --channel', () => {

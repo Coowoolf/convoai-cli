@@ -16,9 +16,7 @@ import { registerAgentSpeak } from './commands/agent/speak.js';
 import { registerAgentInterrupt } from './commands/agent/interrupt.js';
 import { registerAgentHistory } from './commands/agent/history.js';
 import { registerAgentTurns } from './commands/agent/turns.js';
-import { registerAgentWatch } from './commands/agent/watch.js';
 import { registerAgentJoin } from './commands/agent/join.js';
-import { registerAgentChat } from './commands/agent/chat.js';
 
 // ─── Config Commands ────────────────────────────────────────────────────────
 import { registerConfigInit } from './commands/config/init.js';
@@ -52,10 +50,13 @@ import { registerQuickstart } from './commands/quickstart.js';
 // ─── OpenClaw ─────────────────────────────────────────────────────────────
 import { registerOpenClaw } from './commands/openclaw.js';
 
-// ─── Completion & REPL ─────────────────────────────────────────────────────
-import { registerCompletion } from './commands/completion.js';
-import { registerRepl } from './commands/repl.js';
+// ─── Go ──────────────────────────────────────────────────────────────────────
+import { registerGo } from './commands/go.js';
 
+// ─── Completion ───────────────────────────────────────────────────────────────
+import { registerCompletion } from './commands/completion.js';
+
+import { loadConfig } from './config/manager.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -79,10 +80,89 @@ function getVersion(): string {
 
 const VERSION = getVersion();
 
-const BANNER = `
-${chalk.bold.cyan('convoai')} ${chalk.dim(`v${VERSION}`)}
-${chalk.dim('CLI for Agora ConvoAI Engine')}
-`;
+function customHelp(): string {
+  // Try to detect config for smart hint
+  let hasConfig = false;
+  let isCN = false;
+  try {
+    const config = loadConfig();
+    hasConfig = !!config.app_id;
+    isCN = config.region === 'cn';
+  } catch {}
+
+  const P = chalk.hex('#786af4');
+  const B = chalk.hex('#5b8eff');
+  const W = chalk.hex('#c8c8ff');
+
+  const lines: string[] = [];
+  lines.push('');
+  lines.push(`  ${P('\u2597\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2596')}`);
+  lines.push(`  ${P('\u2590')}${B('  ')}${W('\u2588\u2588')}${B('    ')}${W('\u2588\u2588')}${B('   ')}${P('\u258C')}  ${chalk.bold.hex('#786af4')('ConvoAI CLI')} v${VERSION}`);
+  lines.push(`  ${P('\u2590')}${B('    ')}${W('\u2580\u2580\u2580\u2580')}${B('    ')}${P('\u258C')}  ${chalk.dim('Voice AI Engine \u26A1\uD83D\uDC26')}`);
+  lines.push(`  ${P('\u259D\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588\u2580\u2580\u2580\u2580\u2598')}`);
+  lines.push(`  ${P('         \u2580\u259A')}`);
+  lines.push('');
+
+  // Smart hint
+  if (hasConfig) {
+    const hint = isCN ? '\uD83D\uDCA1 \u7EE7\u7EED\u5BF9\u8BDD: convoai go' : '\uD83D\uDCA1 Quick: convoai go';
+    lines.push(`  ${chalk.yellow(hint)}`);
+  } else {
+    const hint = isCN ? '\uD83D\uDCA1 \u5F00\u59CB\u4F7F\u7528: convoai quickstart' : '\uD83D\uDCA1 Get started: convoai quickstart';
+    lines.push(`  ${chalk.yellow(hint)}`);
+  }
+  lines.push('');
+
+  // Group: Start
+  lines.push(chalk.bold('Start:'));
+  lines.push(`  ${chalk.cyan('go')}                ${chalk.dim('Start a voice conversation (uses last config)')}`);
+  lines.push(`  ${chalk.cyan('quickstart')}        ${chalk.dim('First-time setup wizard')}`);
+  lines.push(`  ${chalk.cyan('openclaw')}          ${chalk.dim('Voice-enable your local OpenClaw \uD83E\uDD9E')}`);
+  lines.push('');
+
+  // Group: Agent
+  lines.push(chalk.bold('Agent:'));
+  lines.push(`  ${chalk.cyan('agent join')}        ${chalk.dim('Join a channel with full control')}`);
+  lines.push(`  ${chalk.cyan('agent list')}        ${chalk.dim('List running agents')}`);
+  lines.push(`  ${chalk.cyan('agent stop')}        ${chalk.dim('Stop agent(s)')}`);
+  lines.push(`  ${chalk.cyan('agent status')}      ${chalk.dim('Check agent status')}`);
+  lines.push(`  ${chalk.cyan('agent history')}     ${chalk.dim('View conversation history')}`);
+  lines.push(`  ${chalk.cyan('agent turns')}       ${chalk.dim('View latency analytics')}`);
+  lines.push('');
+
+  // Group: Config
+  lines.push(chalk.bold('Config:'));
+  lines.push(`  ${chalk.cyan('config show')}       ${chalk.dim('Show current config')}`);
+  lines.push(`  ${chalk.cyan('config set')}        ${chalk.dim('Change a setting')}`);
+  lines.push(`  ${chalk.cyan('config init')}       ${chalk.dim('Re-run setup wizard')}`);
+  lines.push('');
+
+  // Group: More
+  lines.push(chalk.bold('More:'));
+  lines.push(`  ${chalk.cyan('agent speak')}       ${chalk.dim('Make agent say something')}`);
+  lines.push(`  ${chalk.cyan('agent interrupt')}   ${chalk.dim('Interrupt agent speech')}`);
+  lines.push(`  ${chalk.cyan('agent start')}       ${chalk.dim('Start agent (API only)')}`);
+  lines.push(`  ${chalk.cyan('token')}             ${chalk.dim('Generate RTC token')}`);
+  lines.push(`  ${chalk.cyan('preset list')}       ${chalk.dim('List built-in presets')}`);
+  lines.push(`  ${chalk.cyan('template')} *        ${chalk.dim('Manage agent templates')}`);
+  lines.push(`  ${chalk.cyan('call')} *            ${chalk.dim('Telephony (Beta)')}`);
+  lines.push(`  ${chalk.cyan('completion')}        ${chalk.dim('Shell completions')}`);
+  lines.push('');
+
+  // Examples
+  lines.push(chalk.bold('Examples:'));
+  lines.push(chalk.dim('  convoai go                                 Resume last conversation'));
+  lines.push(chalk.dim('  convoai go --setup                         Re-configure then start'));
+  lines.push(chalk.dim('  convoai go --model qwen-max                One-time model override'));
+  lines.push(chalk.dim('  convoai agent join -c room1                Join a specific channel'));
+  lines.push(chalk.dim('  convoai openclaw                           Talk to OpenClaw by voice'));
+  lines.push('');
+
+  lines.push(chalk.dim('  Docs: github.com/Coowoolf/convoai-cli'));
+  lines.push('');
+
+  return lines.join('\n');
+}
 
 export function run(): void {
   // Non-blocking update check (fire and forget)
@@ -93,8 +173,12 @@ export function run(): void {
   program
     .name('convoai')
     .description('CLI for Agora ConvoAI Engine — start, manage, and monitor conversational AI agents')
-    .version(VERSION, '-v, --version')
-    .addHelpText('before', BANNER);
+    .version(VERSION, '-v, --version');
+
+  // Override ONLY the root program's help (not subcommands)
+  program.helpInformation = function () {
+    return customHelp();
+  };
 
   // ── auth ────────────────────────────────────────────────────────────────
   const auth = program
@@ -120,9 +204,7 @@ export function run(): void {
   registerAgentInterrupt(agent);
   registerAgentHistory(agent);
   registerAgentTurns(agent);
-  registerAgentWatch(agent);
   registerAgentJoin(agent);
-  registerAgentChat(agent);
 
   // ── call ────────────────────────────────────────────────────────────────
   const call = program
@@ -166,11 +248,11 @@ export function run(): void {
   registerTemplateDelete(template);
   registerTemplateUse(template);
 
-  // ── chat (top-level shortcut) ────────────────────────────────────────────
-  registerAgentChat(program);
-
   // ── quickstart ──────────────────────────────────────────────────────────
   registerQuickstart(program);
+
+  // ── go ─────────────────────────────────────────────────────────────────
+  registerGo(program);
 
   // ── openclaw ───────────────────────────────────────────────────────────
   registerOpenClaw(program);
@@ -180,9 +262,6 @@ export function run(): void {
 
   // ── completion ──────────────────────────────────────────────────────────
   registerCompletion(program);
-
-  // ── repl ───────────────────────────────────────────────────────────────
-  registerRepl(program);
 
   // ── Global error handling ───────────────────────────────────────────────
   program.exitOverride();

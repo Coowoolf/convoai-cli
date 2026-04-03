@@ -127,7 +127,6 @@ describe('Agent Subcommand Help', () => {
     'interrupt',
     'history',
     'turns',
-    'watch',
   ];
 
   for (const cmd of subcommands) {
