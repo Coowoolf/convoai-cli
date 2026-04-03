@@ -49,6 +49,52 @@
 
       client.on('user-left', () => send({ type: 'agent_left' }));
 
+      // ── Real-time transcript via DataStream ──────────────────
+      client.on('stream-message', (uid, data) => {
+        try {
+          // DataStream may send chunked messages: message_id|part_idx|part_sum|base64
+          // Or direct JSON for v2 protocol
+          let text;
+          if (data instanceof Uint8Array) {
+            text = new TextDecoder().decode(data);
+          } else {
+            text = String(data);
+          }
+
+          // Try to parse as direct JSON first
+          try {
+            const msg = JSON.parse(text);
+            if (msg.object) {
+              send({ type: 'transcript', data: msg });
+              return;
+            }
+          } catch {}
+
+          // Chunked protocol: message_id|part_idx|part_sum|base64_content
+          if (text.includes('|')) {
+            const parts = text.split('|');
+            if (parts.length >= 4) {
+              const msgId = parts[0];
+              const partIdx = parseInt(parts[1], 10);
+              const partSum = parseInt(parts[2], 10);
+              const b64 = parts.slice(3).join('|');
+
+              // Simple reassembly for single-part messages
+              if (partSum === 1) {
+                try {
+                  const decoded = atob(b64);
+                  const msg = JSON.parse(decoded);
+                  if (msg.object) {
+                    send({ type: 'transcript', data: msg });
+                  }
+                } catch {}
+              }
+              // Multi-part: accumulate (simplified — just handle single-part for now)
+            }
+          }
+        } catch {}
+      });
+
       send({ type: 'status', text: 'Joining channel...' });
       await client.join(appId, channel, token, uid || null);
       send({ type: 'status', text: 'Joined' });

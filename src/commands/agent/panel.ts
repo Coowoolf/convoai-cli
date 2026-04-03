@@ -17,13 +17,28 @@ interface PanelOpts {
   lang: 'cn' | 'global';
   config: ProfileConfig;
   onExit: () => Promise<void>;
+  _sharedState?: PanelState; // shared with go.ts for live transcript
+}
+
+interface TranscriptEntry {
+  role: 'user' | 'assistant';
+  text: string;
+  turnId: number;
+  final: boolean;
+  interrupted: boolean;
 }
 
 interface PanelState {
   history: HistoryEntry[];
   turns: TurnEntry[];
   inSubmenu: boolean;
-  printedCount: number; // how many history entries we've already printed
+  printedCount: number;
+  // Real-time transcript state
+  transcriptEntries: TranscriptEntry[];
+  transcriptPrintedCount: number;
+  ephemeral: TranscriptEntry | null;
+  lastEphemeralText: string;
+  hasLiveTranscript: boolean; // true once we receive first RTM/DataStream message
 }
 
 // ─── Raw-Mode Menu Helper ──────────────────────────────────────────────────
@@ -92,7 +107,11 @@ function readInput(prompt: string): Promise<string> {
 
 export async function runPanel(opts: PanelOpts): Promise<void> {
   const str = getStrings(opts.lang === 'cn' ? 'cn' : 'global');
-  const state: PanelState = { history: [], turns: [], inSubmenu: false, printedCount: 0 };
+  const state: PanelState = opts._sharedState ?? {
+    history: [], turns: [], inSubmenu: false, printedCount: 0,
+    transcriptEntries: [], transcriptPrintedCount: 0,
+    ephemeral: null, lastEphemeralText: '', hasLiveTranscript: false,
+  };
 
   // Print header once (never redrawn)
   printHeader(opts, str);
@@ -101,12 +120,22 @@ export async function runPanel(opts: PanelOpts): Promise<void> {
   await refreshData(opts, state);
   printNewMessages(state, str);
 
-  // Auto-refresh: only print NEW messages (append, not redraw)
+  // Auto-refresh: if live transcript active, only poll turns for latency stats
+  // If no live transcript (fallback), poll history + turns
   const pollTimer = setInterval(async () => {
     if (state.inSubmenu) return;
-    await refreshData(opts, state);
-    printNewMessages(state, str);
-  }, 500);
+    if (state.hasLiveTranscript) {
+      // Only poll turns for latency stats, transcript comes via WebSocket
+      try {
+        const turnsRes = await opts.api.turns(opts.agentId).catch(() => null);
+        if (turnsRes) state.turns = turnsRes.turns ?? [];
+      } catch {}
+    } else {
+      // Fallback: poll history + turns
+      await refreshData(opts, state);
+      printNewMessages(state, str);
+    }
+  }, 1000);
 
   // Keyboard handling — raw mode stays on for the entire session
   const stdin = process.stdin;
@@ -290,6 +319,74 @@ function printNewMessages(
 
   state.printedCount = state.history.length;
   processTypewriterQueue();
+}
+
+// ─── Live Transcript Handler ────────────────────────────────────────────────
+
+export function handleTranscriptMessage(state: PanelState, msg: Record<string, unknown>): void {
+  const obj = msg.object as string;
+  const turnId = (msg.turn_id as number) ?? 0;
+
+  state.hasLiveTranscript = true;
+
+  if (obj === 'user.transcription') {
+    const isFinal = msg.final as boolean;
+    const text = msg.text as string;
+
+    if (isFinal) {
+      // Clear ephemeral, commit final
+      if (state.ephemeral) {
+        // Clear the ephemeral line
+        process.stdout.write('\r\x1b[K');
+        state.ephemeral = null;
+        state.lastEphemeralText = '';
+      }
+      console.log(`  ${chalk.cyan('[you]      ')} ${text}`);
+      state.transcriptEntries.push({ role: 'user', text, turnId, final: true, interrupted: false });
+    } else {
+      // Partial: overwrite current line
+      state.ephemeral = { role: 'user', text, turnId, final: false, interrupted: false };
+      process.stdout.write(`\r\x1b[K  ${chalk.dim('[you]      ')} ${chalk.dim(text)}`);
+      state.lastEphemeralText = text;
+    }
+  } else if (obj === 'assistant.transcription') {
+    const turnStatus = msg.turn_status as number;
+    const text = msg.text as string;
+
+    if (turnStatus === 0) {
+      // IN_PROGRESS: overwrite current line with growing text
+      state.ephemeral = { role: 'assistant', text, turnId, final: false, interrupted: false };
+      process.stdout.write(`\r\x1b[K  ${chalk.green('[assistant]')} ${text}`);
+      state.lastEphemeralText = text;
+    } else if (turnStatus === 1) {
+      // END: commit
+      if (state.ephemeral) {
+        process.stdout.write('\r\x1b[K');
+        state.ephemeral = null;
+        state.lastEphemeralText = '';
+      }
+      console.log(`  ${chalk.green('[assistant]')} ${text}`);
+      state.transcriptEntries.push({ role: 'assistant', text, turnId, final: true, interrupted: false });
+    } else if (turnStatus === 2) {
+      // INTERRUPTED: commit with marker
+      if (state.ephemeral) {
+        process.stdout.write('\r\x1b[K');
+        state.ephemeral = null;
+        state.lastEphemeralText = '';
+      }
+      console.log(`  ${chalk.green('[assistant]')} ${text} ${chalk.yellow('⚡interrupted')}`);
+      state.transcriptEntries.push({ role: 'assistant', text, turnId, final: true, interrupted: true });
+    }
+  } else if (obj === 'message.interrupt') {
+    // Force-end any ephemeral
+    if (state.ephemeral) {
+      process.stdout.write('\r\x1b[K');
+      console.log(`  ${chalk.green('[assistant]')} ${state.ephemeral.text} ${chalk.yellow('⚡interrupted')}`);
+      state.transcriptEntries.push({ ...state.ephemeral, final: true, interrupted: true });
+      state.ephemeral = null;
+      state.lastEphemeralText = '';
+    }
+  }
 }
 
 // ─── Avg Latency Computation ────────────────────────────────────────────────

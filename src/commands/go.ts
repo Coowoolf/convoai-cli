@@ -316,6 +316,11 @@ async function goAction(opts: {
         silence_duration_ms: 1000,
       },
       parameters: {
+        data_channel: 'datastream',
+        transcript: {
+          enable: true,
+          protocol_version: 'v2',
+        },
         enable_metrics: true,
       },
     },
@@ -418,6 +423,26 @@ async function goAction(opts: {
       : 'Voice chat is live! Start speaking.');
     console.log('');
 
+    // ── Wire WebSocket transcript messages to panel state ──────────────
+    // panelState will be shared with runPanel — transcript messages update it
+    const { handleTranscriptMessage } = await import('./agent/panel.js');
+    const panelState = {
+      history: [] as any[], turns: [] as any[], inSubmenu: false, printedCount: 0,
+      transcriptEntries: [] as any[], transcriptPrintedCount: 0,
+      ephemeral: null as any, lastEphemeralText: '', hasLiveTranscript: false,
+    };
+
+    wss.on('connection', (ws) => {
+      ws.on('message', (raw) => {
+        try {
+          const msg = JSON.parse(raw.toString());
+          if (msg.type === 'transcript' && msg.data) {
+            handleTranscriptMessage(panelState, msg.data);
+          }
+        } catch { /* ignore */ }
+      });
+    });
+
     // ── Enter panel ─────────────────────────────────────────────────────
     await runPanel({
       api,
@@ -425,6 +450,7 @@ async function goAction(opts: {
       channel: channelName,
       lang,
       config: profile,
+      _sharedState: panelState,
       onExit: async () => {
         wss.close();
         server.close();

@@ -112,9 +112,16 @@ export interface SilenceConfig {
 
 // ─── Agent Parameters ───────────────────────────────────────────────────────
 
+export interface TranscriptConfig {
+  enable?: boolean;
+  enable_words?: boolean;
+  protocol_version?: string;
+}
+
 export interface AgentParameters {
   silence_config?: SilenceConfig;
   data_channel?: string;
+  transcript?: TranscriptConfig;
   enable_metrics?: boolean;
   enable_error_message?: boolean;
 }
