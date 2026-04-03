@@ -69,28 +69,28 @@ export async function runPanel(opts: PanelOpts): Promise<void> {
   };
   process.on('SIGINT', sigintHandler);
 
-  stdin.on('data', async (key: string) => {
+  const keyHandler = async (key: string): Promise<void> => {
     if (state.inSubmenu) return;
 
     switch (key) {
       case 'l':
-        await openSubmenu(state, stdin, () => llmMenu(opts, state, str));
+        await openSubmenu(state, stdin, () => llmMenu(opts, state, str), keyHandler);
         render(opts, state, str);
         break;
       case 'a':
-        await openSubmenu(state, stdin, () => asrMenu(opts, str));
+        await openSubmenu(state, stdin, () => asrMenu(opts, str), keyHandler);
         render(opts, state, str);
         break;
       case 't':
-        await openSubmenu(state, stdin, () => ttsMenu(opts, str));
+        await openSubmenu(state, stdin, () => ttsMenu(opts, str), keyHandler);
         render(opts, state, str);
         break;
       case 'v':
-        await openSubmenu(state, stdin, () => vadMenu(str));
+        await openSubmenu(state, stdin, () => vadMenu(str), keyHandler);
         render(opts, state, str);
         break;
       case 'h':
-        await openSubmenu(state, stdin, () => historyView(opts, state, str));
+        await openSubmenu(state, stdin, () => historyView(opts, state, str), keyHandler);
         render(opts, state, str);
         break;
       case 'q':
@@ -102,10 +102,11 @@ export async function runPanel(opts: PanelOpts): Promise<void> {
         await exitPanel();
         break;
       default:
-        // Ignore other keys
         break;
     }
-  });
+  };
+
+  stdin.on('data', keyHandler);
 }
 
 // ─── Submenu Helper ─────────────────────────────────────────────────────────
@@ -114,8 +115,12 @@ async function openSubmenu(
   state: PanelState,
   stdin: NodeJS.ReadStream,
   fn: () => Promise<void>,
+  keyHandler: (key: string) => void,
 ): Promise<void> {
   state.inSubmenu = true;
+
+  // Fully release stdin so inquirer can take over
+  stdin.removeListener('data', keyHandler);
   stdin.setRawMode(false);
   stdin.pause();
 
@@ -125,8 +130,10 @@ async function openSubmenu(
     // Swallow prompt errors (e.g. user force-cancels)
   }
 
+  // Reclaim stdin for single-key detection
   stdin.resume();
   stdin.setRawMode(true);
+  stdin.on('data', keyHandler);
   state.inSubmenu = false;
 }
 
