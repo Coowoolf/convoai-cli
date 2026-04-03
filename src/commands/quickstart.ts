@@ -16,7 +16,10 @@ import { colorStatus } from '../ui/colors.js';
 import { handleError } from '../utils/errors.js';
 import { track } from '../utils/telemetry.js';
 import { formatTimestamp } from '../utils/format.js';
+import { gradientBox, gradientBoxGreen, gradientProgress } from '../ui/gradient.js';
+import { getStrings } from '../ui/i18n.js';
 import { LLM_PROVIDERS, TTS_PROVIDERS, ASR_PROVIDERS, ASR_LANGUAGES } from '../providers/catalog.js';
+import type { StepStrings } from '../ui/i18n.js';
 import type { StartAgentRequest, ConvoAIConfig, LLMConfig } from '../api/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -76,30 +79,67 @@ function getGreeting(language: string): string {
   return GREETINGS[language] ?? GREETINGS['en-US'];
 }
 
-// ─── Step Helpers ──────────────────────────────────────────────────────────
+// ─── Step Rendering ───────────────────────────────────────────────────────
 
-function banner(): void {
+function showStep(stepStrings: StepStrings, current: number, total: number): void {
+  const box = stepStrings === step6Strings ? gradientBoxGreen(stepStrings) : gradientBox(stepStrings);
+  for (const line of box) console.log(line);
+  console.log(gradientProgress(current, total));
+}
+
+// Will be set after platform selection
+let step6Strings: StepStrings;
+
+function mascot(ver: string): void {
   const P = chalk.hex('#786af4');
   const B = chalk.hex('#5b8eff');
   const W = chalk.hex('#c8c8ff');
   console.log('');
   console.log(`  ${P('   ▗▄▄▄▄▄▄▄▄▄▄▄▄▄▖')}`);
   console.log(`  ${P('   ▐')}${B('              ')}${P('▌')}`);
-  let ver = 'unknown';
-  try { ver = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')).version ?? ver; } catch {}
-  try { ver = JSON.parse(readFileSync(join(__dirname, '..', '..', 'package.json'), 'utf-8')).version ?? ver; } catch {}
   console.log(`  ${P('   ▐')}${B('  ')}${W('██')}${B('    ')}${W('██')}${B('   ')}${P('▌')}    ${chalk.bold.hex('#786af4')('ConvoAI CLI')} v${ver}`);
   console.log(`  ${P('   ▐')}${B('    ')}${W('▀▀▀▀')}${B('    ')}${P('▌')}    Voice AI in 2 minutes`);
-  console.log(`  ${P('   ▐')}${B('              ')}${P('▌')}    ${chalk.dim('Powered by Agora ⚡🐦')}`);
+  console.log(`  ${P('   ▐')}${B('              ')}${P('▌')}    ${chalk.dim('Powered by Agora')}`);
   console.log(`  ${P('   ▝▀▀▀▀▀▀▀█▀▀▀▀▘')}`);
   console.log(`  ${P('            ▀▚')}`);
   console.log('');
 }
 
-function step(n: number, total: number, label: string): void {
-  console.log('');
-  console.log(chalk.cyan(`  [${n}/${total}] `) + chalk.bold(label));
-  console.log(chalk.dim('  ' + '─'.repeat(44)));
+// ─── LLM Provider Ordering ───────────────────────────────────────────────
+
+const LLM_ORDER_CN = [
+  'dashscope', 'deepseek', 'openai', 'groq', 'anthropic',
+  'gemini', 'azure', 'bedrock', 'dify', 'custom',
+];
+
+const LLM_ORDER_EN = [
+  'openai', 'groq', 'anthropic', 'gemini', 'dashscope',
+  'deepseek', 'azure', 'bedrock', 'dify', 'custom',
+];
+
+const LLM_CN_NAMES: Record<string, string> = {
+  dashscope: '阿里通义千问',
+  deepseek: 'DeepSeek',
+  openai: 'OpenAI',
+  groq: 'Groq',
+  anthropic: 'Anthropic',
+  gemini: 'Gemini',
+  azure: 'Azure',
+  bedrock: 'Bedrock',
+  dify: 'Dify',
+  custom: 'Custom',
+};
+
+function getOrderedLlmChoices(lang: 'cn' | 'global'): Array<{ name: string; value: string }> {
+  const order = lang === 'cn' ? LLM_ORDER_CN : LLM_ORDER_EN;
+  return order
+    .map((value) => {
+      const provider = LLM_PROVIDERS.find((p) => p.value === value);
+      if (!provider) return null;
+      const name = lang === 'cn' ? (LLM_CN_NAMES[value] ?? provider.name) : provider.name;
+      return { name, value: provider.value };
+    })
+    .filter((c): c is { name: string; value: string } => c !== null);
 }
 
 // ─── Main Action ───────────────────────────────────────────────────────────
@@ -114,55 +154,71 @@ async function quickstartAction(): Promise<void> {
 
   const { default: inquirer } = await import('inquirer');
 
-  banner();
+  // Read version for mascot
+  let ver = 'unknown';
+  try { ver = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')).version ?? ver; } catch { /* */ }
+  try { ver = JSON.parse(readFileSync(join(__dirname, '..', '..', 'package.json'), 'utf-8')).version ?? ver; } catch { /* */ }
+
+  // Mascot first, then welcome box
+  mascot(ver);
+
   track('qs_start');
 
-  const TOTAL_STEPS = 6;
+  // ═══════════════════════════════════════════════════════════════════════
+  // Platform choice FIRST — determines language for all subsequent text
+  // ═══════════════════════════════════════════════════════════════════════
+
   let config = loadConfig();
+
+  const welcomeStrings = getStrings('global').welcome;
+  for (const line of gradientBox({
+    emoji: '👋',
+    title: welcomeStrings.title,
+    subtitle: welcomeStrings.subtitle,
+  })) console.log(line);
+
+  const { platform } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'platform',
+      message: 'Choose your platform:',
+      choices: [
+        { name: 'Shengwang.cn', value: 'cn' },
+        { name: 'Agora.io (Global)', value: 'global' },
+      ],
+      default: config.region ?? 'cn',
+    },
+  ]);
+
+  const lang = platform as 'cn' | 'global';
+  const str = getStrings(lang);
+  step6Strings = str.step6;
+
+  config.region = platform;
+  saveConfig(config);
+
+  const TOTAL_STEPS = 6;
   const needsConfig = !config.app_id || !config.customer_id || !config.customer_secret || !config.app_certificate;
 
   // ═══════════════════════════════════════════════════════════════════════
   // STEP 1: Agora Credentials
   // ═══════════════════════════════════════════════════════════════════════
-  step(1, TOTAL_STEPS, 'Agora Credentials');
+  console.log('');
+  showStep(str.step1, 1, TOTAL_STEPS);
 
   if (needsConfig) {
-    // First ask where they registered — this determines region + console URL
-    const { platform } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'platform',
-        message: 'Where did you sign up?',
-        choices: [
-          { name: '声网 Shengwang.cn (中国)', value: 'cn' },
-          { name: 'Agora.io (Global)', value: 'global' },
-        ],
-        default: config.region ?? 'cn',
-      },
-    ]);
-
-    const consoleUrl = platform === 'cn'
-      ? 'https://console.shengwang.cn'
-      : 'https://console.agora.io';
-
-    console.log('');
-    console.log(chalk.dim(`  Get your credentials from: ${chalk.underline(consoleUrl)}`));
-    console.log(chalk.dim(`  → Project Management → App ID & App Certificate`));
-    console.log(chalk.dim(`  → Developer Toolkit → RESTful API → Customer ID & Secret`));
-    console.log('');
-
     const creds = await inquirer.prompt([
       {
         type: 'input',
         name: 'appId',
-        message: 'App ID:',
+        message: str.appId + ':',
         default: config.app_id,
         validate: (v: string) => v.trim().length > 0 || 'Required',
       },
       {
         type: 'password',
         name: 'appCertificate',
-        message: 'App Certificate:',
+        message: str.appCert + ':',
         mask: '*',
         default: config.app_certificate,
         validate: (v: string) => v.trim().length > 0 || 'Required',
@@ -170,14 +226,14 @@ async function quickstartAction(): Promise<void> {
       {
         type: 'input',
         name: 'customerId',
-        message: 'Customer ID (RESTful API):',
+        message: str.customerId + ':',
         default: config.customer_id,
         validate: (v: string) => v.trim().length > 0 || 'Required',
       },
       {
         type: 'password',
         name: 'customerSecret',
-        message: 'Customer Secret:',
+        message: str.customerSecret + ':',
         mask: '*',
         default: config.customer_secret,
         validate: (v: string) => v.trim().length > 0 || 'Required',
@@ -188,42 +244,141 @@ async function quickstartAction(): Promise<void> {
     config.app_certificate = creds.appCertificate;
     config.customer_id = creds.customerId;
     config.customer_secret = creds.customerSecret;
-    config.region = platform;
     saveConfig(config);
-    printSuccess('Credentials saved.');
+    printSuccess(str.credentialsSaved);
     track('qs_step1');
   } else {
-    printSuccess(`Already configured (App ID: ${config.app_id!.slice(0, 8)}...)`);
+    printSuccess(`${str.alreadyConfigured} (App ID: ${config.app_id!.slice(0, 8)}...)`);
     track('qs_step1');
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // STEP 2: LLM Setup
+  // STEP 2: ASR Setup (was step 4 in old version)
   // ═══════════════════════════════════════════════════════════════════════
-  step(2, TOTAL_STEPS, 'LLM (Large Language Model)');
+  console.log('');
+  showStep(str.step2, 2, TOTAL_STEPS);
 
   if (!config.profiles) config.profiles = {};
   if (!config.default_profile) config.default_profile = 'default';
   const profile = config.profiles['default'] ?? {};
 
+  const hasAsr = profile.asr?.vendor;
+
+  if (!hasAsr) {
+    // Build ASR provider choices
+    const asrChoices = ASR_PROVIDERS.map((p) => {
+      let label = p.name;
+      if (p.vendor === 'ares') label += chalk.dim(` — ${str.asrRecommend}`);
+      else if (p.note) label += chalk.dim(` — ${p.note}`);
+      if (p.beta) label += chalk.dim(' (Beta)');
+      return { name: label, value: p.vendor };
+    });
+
+    const { vendor: asrVendor } = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'vendor',
+        message: str.asrProvider + ':',
+        choices: asrChoices,
+        default: 'ares',
+      },
+    ]);
+
+    const selectedAsr = ASR_PROVIDERS.find((p) => p.vendor === asrVendor)!;
+
+    // API Key — not needed for ARES
+    let asrKey: string | undefined;
+    if (asrVendor !== 'ares') {
+      const { key } = await inquirer.prompt([
+        {
+          type: 'password',
+          name: 'key',
+          message: str.apiKey + ':',
+          mask: '*',
+          validate: (v: string) => v.trim().length > 0 || 'Required',
+        },
+      ]);
+      asrKey = key;
+    }
+
+    // Microsoft ASR needs region
+    let asrRegion: string | undefined;
+    if (selectedAsr.requiresRegion) {
+      const { region } = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'region',
+          message: 'Azure ASR Region:',
+          default: 'eastus',
+          validate: (v: string) => v.trim().length > 0 || 'Required',
+        },
+      ]);
+      asrRegion = region;
+    }
+
+    // Language selection
+    const defaultLang = lang === 'cn' ? 'zh-CN' : 'en-US';
+    const langChoices = ASR_LANGUAGES.map((l) => ({ name: l.name, value: l.value }));
+
+    const { language: asrLanguage } = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'language',
+        message: str.language + ':',
+        choices: langChoices,
+        default: defaultLang,
+      },
+    ]);
+
+    // Build ASR config
+    if (asrVendor === 'ares') {
+      profile.asr = {
+        vendor: 'ares',
+        language: asrLanguage,
+      };
+    } else {
+      const asrParams: Record<string, unknown> = { key: asrKey };
+      if (asrRegion) asrParams.region = asrRegion;
+      if (asrLanguage) asrParams.language = asrLanguage;
+      // Auto-fill vendor defaults (url, model, etc.)
+      if (selectedAsr.defaultParams) {
+        for (const [k, v] of Object.entries(selectedAsr.defaultParams)) {
+          if (!(k in asrParams)) asrParams[k] = v;
+        }
+      }
+      profile.asr = {
+        vendor: asrVendor,
+        language: asrLanguage,
+        params: asrParams,
+      };
+    }
+
+    config.profiles['default'] = profile;
+    saveConfig(config);
+    printSuccess(`${str.asrConfigured}: ${asrVendor} (${asrLanguage})`);
+    track('qs_step2');
+  } else {
+    printSuccess(`${str.asrConfigured}: ${profile.asr!.vendor} (${profile.asr!.language ?? 'default'})`);
+    track('qs_step2');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // STEP 3: LLM Setup (was step 2 in old version)
+  // ═══════════════════════════════════════════════════════════════════════
+  console.log('');
+  showStep(str.step3, 3, TOTAL_STEPS);
+
   const hasLlm = profile.llm?.url && (profile.llm?.api_key || profile.llm?.url?.includes('key='));
 
   if (!hasLlm) {
-    console.log(chalk.dim('  Configure which AI model powers your voice agent'));
-    console.log('');
-
-    // Build LLM provider choices
-    const llmChoices = LLM_PROVIDERS.map((p) => {
-      let label = p.name;
-      if (p.note) label += chalk.dim(` — ${p.note}`);
-      return { name: label, value: p.value };
-    });
+    // Build LLM provider choices — ordered by language, names only (no descriptions)
+    const llmChoices = getOrderedLlmChoices(lang);
 
     const { provider: llmProvider } = await inquirer.prompt([
       {
         type: 'list',
         name: 'provider',
-        message: 'LLM provider:',
+        message: str.llmProvider + ':',
         choices: llmChoices,
       },
     ]);
@@ -235,7 +390,7 @@ async function quickstartAction(): Promise<void> {
       {
         type: 'password',
         name: 'apiKey',
-        message: 'LLM API Key:',
+        message: str.apiKey + ':',
         mask: '*',
         validate: (v: string) => v.trim().length > 0 || 'Required',
       },
@@ -248,7 +403,7 @@ async function quickstartAction(): Promise<void> {
         {
           type: 'list',
           name: 'model',
-          message: 'Model:',
+          message: str.model + ':',
           choices: selectedLlm.models,
           default: selectedLlm.defaultModel,
         },
@@ -259,7 +414,7 @@ async function quickstartAction(): Promise<void> {
         {
           type: 'input',
           name: 'model',
-          message: 'Model name:',
+          message: str.model + ':',
           default: selectedLlm.defaultModel || undefined,
           validate: (v: string) => v.trim().length > 0 || 'Required',
         },
@@ -285,7 +440,7 @@ async function quickstartAction(): Promise<void> {
         {
           type: 'input',
           name: 'url',
-          message: 'API URL (required):',
+          message: 'API URL:',
           validate: (v: string) => v.trim().length > 0 || 'Required',
         },
       ]);
@@ -341,25 +496,23 @@ async function quickstartAction(): Promise<void> {
     profile.llm = llmConfig;
     config.profiles['default'] = profile;
     saveConfig(config);
-    printSuccess(`LLM configured: ${llmModel} via ${selectedLlm.name}`);
-    track('qs_step2');
+    printSuccess(`${str.llmConfigured}: ${llmModel} via ${selectedLlm.name}`);
+    track('qs_step3');
   } else {
     const model = profile.llm?.params?.model ?? profile.llm?.model ?? 'unknown';
-    printSuccess(`LLM already configured: ${model}`);
-    track('qs_step2');
+    printSuccess(`${str.llmConfigured}: ${model}`);
+    track('qs_step3');
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // STEP 3: TTS Setup
+  // STEP 4: TTS Setup (was step 3 in old version)
   // ═══════════════════════════════════════════════════════════════════════
-  step(3, TOTAL_STEPS, 'TTS (Text-to-Speech)');
+  console.log('');
+  showStep(str.step4, 4, TOTAL_STEPS);
 
   const hasTts = profile.tts?.vendor;
 
   if (!hasTts) {
-    console.log(chalk.dim('  Choose how the agent speaks'));
-    console.log('');
-
     // Build TTS provider choices
     const ttsChoices = TTS_PROVIDERS.map((p) => {
       let label = p.name;
@@ -371,7 +524,7 @@ async function quickstartAction(): Promise<void> {
       {
         type: 'list',
         name: 'vendor',
-        message: 'TTS vendor:',
+        message: str.ttsProvider + ':',
         choices: ttsChoices,
       },
     ]);
@@ -383,7 +536,7 @@ async function quickstartAction(): Promise<void> {
       {
         type: 'password',
         name: 'key',
-        message: 'TTS API Key:',
+        message: str.ttsApiKey + ':',
         mask: '*',
         validate: (v: string) => v.trim().length > 0 || 'Required',
       },
@@ -419,7 +572,7 @@ async function quickstartAction(): Promise<void> {
         {
           type: 'input',
           name: 'groupId',
-          message: 'Group ID:',
+          message: str.groupId + ':',
           validate: (v: string) => v.trim().length > 0 || 'Required — find it at minimax.chat console',
         },
       ]);
@@ -453,124 +606,18 @@ async function quickstartAction(): Promise<void> {
     };
     config.profiles['default'] = profile;
     saveConfig(config);
-    printSuccess(`TTS configured: ${selectedTts.name}`);
-    track('qs_step3');
-  } else {
-    printSuccess(`TTS already configured: ${profile.tts!.vendor}`);
-    track('qs_step3');
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // STEP 4: ASR Setup
-  // ═══════════════════════════════════════════════════════════════════════
-  step(4, TOTAL_STEPS, 'ASR (Speech-to-Text)');
-
-  const hasAsr = profile.asr?.vendor;
-
-  if (!hasAsr) {
-    console.log(chalk.dim('  Choose how the agent hears you'));
-    console.log('');
-
-    // Build ASR provider choices
-    const asrChoices = ASR_PROVIDERS.map((p) => {
-      let label = p.name;
-      if (p.note) label += chalk.dim(` — ${p.note}`);
-      if (p.beta) label += chalk.dim(' (Beta)');
-      return { name: label, value: p.vendor };
-    });
-
-    const { vendor: asrVendor } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'vendor',
-        message: 'ASR vendor:',
-        choices: asrChoices,
-        default: 'ares',
-      },
-    ]);
-
-    const selectedAsr = ASR_PROVIDERS.find((p) => p.vendor === asrVendor)!;
-
-    // API Key — not needed for ARES
-    let asrKey: string | undefined;
-    if (asrVendor !== 'ares') {
-      const { key } = await inquirer.prompt([
-        {
-          type: 'password',
-          name: 'key',
-          message: 'ASR API Key:',
-          mask: '*',
-          validate: (v: string) => v.trim().length > 0 || 'Required',
-        },
-      ]);
-      asrKey = key;
-    }
-
-    // Microsoft ASR needs region
-    let asrRegion: string | undefined;
-    if (selectedAsr.requiresRegion) {
-      const { region } = await inquirer.prompt([
-        {
-          type: 'input',
-          name: 'region',
-          message: 'Azure ASR Region:',
-          default: 'eastus',
-          validate: (v: string) => v.trim().length > 0 || 'Required',
-        },
-      ]);
-      asrRegion = region;
-    }
-
-    // Language selection
-    const defaultLang = config.region === 'cn' ? 'zh-CN' : 'en-US';
-    const langChoices = ASR_LANGUAGES.map((l) => ({ name: l.name, value: l.value }));
-
-    const { language: asrLanguage } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'language',
-        message: 'Language:',
-        choices: langChoices,
-        default: defaultLang,
-      },
-    ]);
-
-    // Build ASR config
-    if (asrVendor === 'ares') {
-      profile.asr = {
-        vendor: 'ares',
-        language: asrLanguage,
-      };
-    } else {
-      const asrParams: Record<string, unknown> = { key: asrKey };
-      if (asrRegion) asrParams.region = asrRegion;
-      if (asrLanguage) asrParams.language = asrLanguage;
-      // Auto-fill vendor defaults (url, model, etc.)
-      if (selectedAsr.defaultParams) {
-        for (const [k, v] of Object.entries(selectedAsr.defaultParams)) {
-          if (!(k in asrParams)) asrParams[k] = v;
-        }
-      }
-      profile.asr = {
-        vendor: asrVendor,
-        language: asrLanguage,
-        params: asrParams,
-      };
-    }
-
-    config.profiles['default'] = profile;
-    saveConfig(config);
-    printSuccess(`ASR configured: ${asrVendor} (${asrLanguage})`);
+    printSuccess(`${str.ttsConfigured}: ${selectedTts.name}`);
     track('qs_step4');
   } else {
-    printSuccess(`ASR already configured: ${profile.asr!.vendor} (${profile.asr!.language ?? 'default'})`);
+    printSuccess(`${str.ttsConfigured}: ${profile.tts!.vendor}`);
     track('qs_step4');
   }
 
   // ═══════════════════════════════════════════════════════════════════════
   // STEP 5: Start agent & voice chat
   // ═══════════════════════════════════════════════════════════════════════
-  step(5, TOTAL_STEPS, 'Start voice agent');
+  console.log('');
+  showStep(str.step5, 5, TOTAL_STEPS);
 
   // Detect OpenClaw and offer voice integration
   let hasOpenClaw = false;
@@ -585,10 +632,10 @@ async function quickstartAction(): Promise<void> {
       {
         type: 'list',
         name: 'mode',
-        message: 'Choose voice mode:',
+        message: str.launchMode + ':',
         choices: [
-          { name: 'ConvoAI Agent — start a new voice AI agent', value: 'convoai' },
-          { name: '🦞 OpenClaw — voice-enable your local OpenClaw assistant', value: 'openclaw' },
+          { name: str.launchConvoai, value: 'convoai' },
+          { name: str.launchOpenclaw, value: 'openclaw' },
         ],
       },
     ]);
@@ -614,14 +661,14 @@ async function quickstartAction(): Promise<void> {
 
   // Verify credentials before starting agent
   try {
-    await withSpinner('Verifying credentials...', () => api.list({ limit: 1 }));
-    printSuccess('Credentials verified.');
+    await withSpinner(str.verifying, () => api.list({ limit: 1 }));
+    printSuccess(str.verified);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('401')) {
       printError('Authentication failed (401). Your Customer ID or Customer Secret is incorrect.');
-      const consoleUrl = config.region === 'cn' ? 'https://console.shengwang.cn' : 'https://console.agora.io';
-      printHint(`Check your credentials at ${consoleUrl} → Developer Toolkit → RESTful API`);
+      const consoleUrl = lang === 'cn' ? 'https://console.shengwang.cn' : 'https://console.agora.io';
+      printHint(`Check your credentials at ${consoleUrl}`);
       printHint('Run `convoai config init` to reconfigure.');
     } else {
       printError(`Connection failed: ${msg}`);
@@ -670,13 +717,13 @@ async function quickstartAction(): Promise<void> {
 
   let result;
   try {
-    result = await withSpinner('Starting voice agent...', () => api.start(request));
+    result = await withSpinner(str.starting, () => api.start(request));
   } catch (err) {
     track('error', { error_type: 'agent_start_failed' });
     throw err;
   }
 
-  printSuccess('Agent is live!');
+  printSuccess(str.agentLive);
   track('qs_step5_agent');
   printKeyValue([
     ['Agent ID', result.agent_id],
@@ -711,10 +758,10 @@ async function quickstartAction(): Promise<void> {
   track('qs_step5_voice');
 
   console.log('');
-  console.log(chalk.green.bold('  🎙  Voice chat is live!'));
-  console.log(chalk.dim('  Browser opened — allow microphone and start talking.'));
+  console.log(chalk.green.bold(`  ${str.voiceLive}`));
+  console.log(chalk.dim(`  ${str.browserHint}`));
   console.log('');
-  console.log(chalk.dim('  Press ') + chalk.bold('Enter') + chalk.dim(' when done to see results, or ') + chalk.bold('Ctrl+C') + chalk.dim(' to quit.'));
+  console.log(chalk.dim('  ') + chalk.dim(str.enterHint));
   console.log('');
 
   // Wait for user to press Enter
@@ -737,7 +784,8 @@ async function quickstartAction(): Promise<void> {
   // ═══════════════════════════════════════════════════════════════════════
   // STEP 6: Results
   // ═══════════════════════════════════════════════════════════════════════
-  step(6, TOTAL_STEPS, 'Results');
+  console.log('');
+  showStep(str.step6, 6, TOTAL_STEPS);
 
   // Fetch history
   try {
@@ -803,14 +851,14 @@ async function quickstartAction(): Promise<void> {
   // Stop the agent
   try {
     await withSpinner('Stopping agent...', () => api.stop(result.agent_id));
-    printSuccess('Agent stopped. Quickstart complete!');
+    printSuccess(str.complete);
   } catch {
-    printSuccess('Agent already stopped. Quickstart complete!');
+    printSuccess(str.complete);
   }
 
   console.log('');
   console.log(chalk.cyan.bold('  What\'s next?'));
-  console.log(chalk.dim('  ─────────────────────────────────────'));
+  console.log(chalk.dim('  ' + '─'.repeat(37)));
   console.log(`  ${chalk.bold('convoai agent join -c room1')}     Start a voice chat session`);
   console.log(`  ${chalk.bold('convoai agent start -c room1')}    Start agent (API only)`);
   console.log(`  ${chalk.bold('convoai preset list')}             See built-in presets`);
