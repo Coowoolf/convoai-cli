@@ -206,18 +206,22 @@ async function quickstartAction(): Promise<void> {
   showStep(str.step1, 1, TOTAL_STEPS);
 
   if (needsConfig) {
+    const consoleUrl = platform === 'cn' ? 'console.shengwang.cn' : 'console.agora.io';
+    const overviewHint = platform === 'cn' ? '总览 → 项目信息' : 'Overview → Project Info';
+    const restHint = platform === 'cn' ? 'Developer Toolkit → RESTful API → 添加密钥 → 下载' : 'Developer Toolkit → RESTful API → Add Secret → Download';
+
     const creds = await inquirer.prompt([
       {
         type: 'input',
         name: 'appId',
-        message: str.appId + ':',
+        message: `${str.appId} ${chalk.dim(`(${consoleUrl} → ${overviewHint})`)}:`,
         default: config.app_id,
         validate: (v: string) => v.trim().length > 0 || 'Required',
       },
       {
         type: 'password',
         name: 'appCertificate',
-        message: str.appCert + ':',
+        message: `${str.appCert} ${chalk.dim(`(${overviewHint})`)}:`,
         mask: '*',
         default: config.app_certificate,
         validate: (v: string) => v.trim().length > 0 || 'Required',
@@ -225,14 +229,14 @@ async function quickstartAction(): Promise<void> {
       {
         type: 'input',
         name: 'customerId',
-        message: str.customerId + ':',
+        message: `${str.customerId} ${chalk.dim(`(${restHint})`)}:`,
         default: config.customer_id,
         validate: (v: string) => v.trim().length > 0 || 'Required',
       },
       {
         type: 'password',
         name: 'customerSecret',
-        message: str.customerSecret + ':',
+        message: `${str.customerSecret} ${chalk.dim(`(${restHint})`)}:`,
         mask: '*',
         default: config.customer_secret,
         validate: (v: string) => v.trim().length > 0 || 'Required',
@@ -384,16 +388,23 @@ async function quickstartAction(): Promise<void> {
 
     const selectedLlm = LLM_PROVIDERS.find((p) => p.value === llmProvider)!;
 
-    // API Key
+    // API Key — allow skip (empty = skip this step)
+    const skipHint = platform === 'cn' ? '留空跳过此步骤' : 'Leave empty to skip';
     const { apiKey: llmApiKey } = await inquirer.prompt([
       {
         type: 'password',
         name: 'apiKey',
-        message: str.apiKey + ':',
+        message: `${str.apiKey} ${chalk.dim(`(${skipHint})`)}:`,
         mask: '*',
-        validate: (v: string) => v.trim().length > 0 || 'Required',
       },
     ]);
+
+    if (!llmApiKey) {
+      const msg = platform === 'cn' ? '已跳过 LLM 配置，稍后可用 convoai go --setup 补全' : 'LLM skipped. Run convoai go --setup later to configure.';
+      console.log(chalk.dim(`  ${msg}`));
+      track('qs_step3');
+      // Skip to TTS step — don't save incomplete LLM
+    } else {
 
     // Model — list if provider has models, otherwise free input
     let llmModel: string;
@@ -497,6 +508,7 @@ async function quickstartAction(): Promise<void> {
     saveConfig(config);
     printSuccess(`${str.llmConfigured}: ${llmModel} via ${selectedLlm.name}`);
     track('qs_step3');
+    } // close the else (API key not skipped)
   } else {
     const model = profile.llm?.params?.model ?? profile.llm?.model ?? 'unknown';
     printSuccess(`${str.llmConfigured}: ${model}`);
