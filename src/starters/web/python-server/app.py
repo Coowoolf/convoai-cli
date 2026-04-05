@@ -135,6 +135,24 @@ def session_stop():
     return {"status": "stopped"}
 
 
+@app.post("/session/interrupt")
+def session_interrupt():
+    global current_session
+
+    if not current_session:
+        raise HTTPException(404, "No active session")
+
+    customer_id, customer_secret = get_auth()
+    url = f"{get_base_url()}/agents/{current_session['agentId']}/interrupt"
+
+    try:
+        requests.post(url, json={}, auth=(customer_id, customer_secret))
+    except Exception:
+        pass
+
+    return {"status": "interrupted"}
+
+
 @app.get("/token")
 def get_token(channel: str = "", uid: int = 0):
     app_id = os.environ["AGORA_APP_ID"]
@@ -142,6 +160,42 @@ def get_token(channel: str = "", uid: int = 0):
     ch = channel or f"ch-{int(time.time()):x}"
     token = build_token(app_id, app_cert, ch, uid)
     return {"token": token, "channel": ch, "uid": uid}
+
+
+@app.get("/history")
+def get_history(agentId: str = ""):
+    if not agentId:
+        raise HTTPException(400, "Missing agentId query parameter")
+
+    customer_id, customer_secret = get_auth()
+    url = f"{get_base_url()}/agents/{agentId}/history"
+
+    try:
+        res = requests.get(url, auth=(customer_id, customer_secret))
+        if res.ok:
+            return {"history": res.json().get("history", [])}
+    except Exception:
+        pass
+    return {"history": []}
+
+
+# ─── Agora RTC SDK from npm ────────────────────────────────────────────────
+# Requires: npm install in the parent directory (for agora-rtc-sdk-ng)
+
+from fastapi.responses import FileResponse
+from pathlib import Path
+
+_sdk_path = Path(__file__).parent.parent / "node_modules" / "agora-rtc-sdk-ng" / "AgoraRTC_N-production.js"
+
+
+@app.get("/agora-sdk.js")
+def agora_sdk():
+    if _sdk_path.exists():
+        return FileResponse(_sdk_path, media_type="application/javascript")
+    raise HTTPException(
+        404,
+        "Agora SDK not found. Run 'npm install' in the parent directory first.",
+    )
 
 
 # Serve frontend — mount AFTER API routes

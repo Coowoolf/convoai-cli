@@ -1,172 +1,73 @@
-# ConvoAI CLI v1.2.1 — Release Notes
+# ConvoAI CLI v1.6.0 — Release Notes
 
-> **⚡🐦 Voice AI in your terminal. One command to talk to AI.**
+> **From CLI Tool to Developer Platform.**
 
 ```bash
-curl -fsSL https://convobench.org/install.sh | bash
+npm install -g convoai
+convoai init my-app && cd my-app && npm install && convoai dev
 ```
 
 ---
 
 ## Highlights
 
-### One-Liner Install
-```bash
-curl -fsSL https://convobench.org/install.sh | bash
-```
-Detects Node.js, installs the CLI, launches a 6-step quickstart wizard. From zero to voice conversation in under 3 minutes.
+### Developer Platform: `convoai init` + `convoai dev`
 
-### Terminal Voice Chat (`convoai chat`)
-Talk to AI agents directly in the terminal — no browser needed. Uses headless Chrome for audio I/O, displays real-time conversation with inline latency metrics.
+Scaffold a complete Web starter project with one command. Three-layer architecture (Frontend / Customer Server / ConvoAI Engine) with clear separation.
 
 ```bash
-convoai chat -c my-room
+convoai init my-app    # Creates project with all files + credentials
+cd my-app && npm install
+convoai dev            # Starts server, auto-opens browser
 ```
 
-### OpenClaw Integration (`convoai openclaw`)
-Voice-enable your local [OpenClaw](https://openclaw.ai) assistant. Speak to OpenClaw instead of typing — powered by an auto-provisioned ngrok tunnel.
+**What you get:**
+- `frontend/` — Dark geek UI (Happy Hues #4), voice conversation, real-time subtitles, mic/mute, interrupt
+- `server/` — Express + TypeScript, direct Agora REST API calls, token generation, webhook placeholders
+- `python-server/` — FastAPI alternative with pure Python token builder, same API routes
+- `connectors/` — Architecture docs for future Telephony / IoT / Text extensions
 
-```bash
-convoai openclaw
-```
+### Inline Credential Setup
 
-### 30+ Supported Providers
-| Type | Count | Providers |
-|------|-------|-----------|
-| LLM | 10 | Alibaba Qwen, DeepSeek, OpenAI, Groq, Anthropic Claude, Google Gemini, Azure OpenAI, Amazon Bedrock, Dify, Custom |
-| TTS | 12 | ElevenLabs, Microsoft Azure, MiniMax, OpenAI, Cartesia, Hume AI, Rime, Fish Audio, Google, Amazon Polly, Murf, Sarvam |
-| ASR | 9 | ARES (built-in), Microsoft Azure, Deepgram, OpenAI Whisper, Speechmatics, AssemblyAI, Amazon Transcribe, Google, Sarvam |
-| Languages | 24 | Chinese, English, Japanese, Korean, French, German, Spanish, Russian, Hindi, Arabic, and 14 more |
+`convoai init` auto-detects if you have Agora credentials. If not, it runs an inline wizard (Platform, Agora keys, LLM provider, TTS provider) — no need to run `quickstart` separately.
 
-### Live Dashboard
-Real-time analytics at [convobench.org/dashboard](https://convobench.org/dashboard) — quickstart funnel, step timing, session tracking, error breakdown. Powered by Upstash Redis.
+### Agora RTC SDK via NPM
+
+Switched from CDN `<script>` to npm package `agora-rtc-sdk-ng`. Every `npm install -g convoai` and every `npm install` in a starter project counts as an npm download.
+
+### Real-time User Subtitles
+
+DataStream-based transcription shows what you're saying in real-time (partial + final). Agent responses via history API fallback.
 
 ---
 
-## All Commands
+## New Commands
 
-### Core
 | Command | Description |
 |---------|-------------|
-| `convoai quickstart` | Full guided setup: credentials → LLM → TTS → ASR → voice chat |
-| `convoai chat -c <channel>` | Voice chat in terminal (no browser) |
-| `convoai agent join -c <channel>` | Voice chat via browser |
-| `convoai openclaw` | Voice-enable local OpenClaw assistant |
+| `convoai init [name]` | Create a new starter project (defaults to `my-convoai-app`) |
+| `convoai dev` | Start the starter's dev server (delegates to `npm run dev`) |
 
-### Agent Management
-| Command | Description |
-|---------|-------------|
-| `convoai agent start` | Start an agent (API only) |
-| `convoai agent stop <id>` | Stop an agent |
-| `convoai agent stop --all` | Stop all running agents |
-| `convoai agent status <id>` | Query agent status |
-| `convoai agent list` | List running agents |
-| `convoai agent update <id>` | Update agent config |
-| `convoai agent speak <id> <text>` | Make agent speak |
-| `convoai agent interrupt <id>` | Interrupt agent speech |
-| `convoai agent history <id>` | View conversation history |
-| `convoai agent turns <id>` | View turn-level latency analytics |
-| `convoai agent watch <id>` | Real-time monitoring dashboard |
+## Improvements
 
-### Configuration
-| Command | Description |
-|---------|-------------|
-| `convoai config init` | Interactive config wizard |
-| `convoai config set <key> <value>` | Set config value |
-| `convoai config get <key>` | Get config value |
-| `convoai config show` | Show full config |
-| `convoai config path` | Print config file path |
-| `convoai auth login` | Configure credentials |
-| `convoai auth status` | Check connection |
+- **Port conflict detection** — `convoai dev` checks the configured PORT before starting, shows clear error
+- **Windows compatibility** — `convoai dev` uses `shell: true` on Windows for `npm.cmd`
+- **Gemini URL resolution** — `{model}` and `{api_key}` placeholders resolved during init
+- **TTS provider params** — MiniMax group_id, Microsoft region/voice, OpenAI api_key all handled correctly
+- **Credential validation** — Session start returns 503 with clear message when .env is empty
+- **SDK resolve fix** — `require.resolve('agora-rtc-sdk-ng')` instead of blocked subpath
 
-### Templates & Presets
-| Command | Description |
-|---------|-------------|
-| `convoai preset list` | List built-in presets |
-| `convoai preset use <name>` | Apply a preset |
-| `convoai template save <name>` | Save agent config as template |
-| `convoai template list` | List saved templates |
-| `convoai template use <name>` | Start agent from template |
-
-### Telephony (Beta)
-| Command | Description |
-|---------|-------------|
-| `convoai call initiate` | Start outbound phone call |
-| `convoai call hangup <id>` | Hang up call |
-| `convoai call status <id>` | Get call status |
-
-### Utilities
-| Command | Description |
-|---------|-------------|
-| `convoai token -c <channel>` | Generate RTC token |
-| `convoai completion install` | Install shell completions |
-| `convoai repl` | Interactive shell |
-
----
-
-## Architecture
-
-```
-Developer Terminal
-    │
-    ├── convoai CLI (Node.js / TypeScript)
-    │     ├── Config Manager (~/.config/convoai/)
-    │     ├── Token Generator (agora-token)
-    │     ├── REST API Client → Agora ConvoAI Engine
-    │     ├── Telemetry → convobench.org/api/t
-    │     └── Local HTTP Server → Browser/Headless Voice Client
-    │
-    ├── Browser Mode (Agora Web SDK 4.22.0)
-    │     └── Microphone → RTC Channel ↔ ConvoAI Agent
-    │
-    ├── Terminal Mode (puppeteer-core + system Chrome)
-    │     └── Headless browser handles WebRTC, terminal shows conversation
-    │
-    └── OpenClaw Mode (ngrok tunnel)
-          └── ASR → ngrok → local OpenClaw bridge → TTS
-```
-
----
-
-## Config Hierarchy
-
-```
-CLI flags > Environment variables > Project .convoai.json > Profile > Base config
-```
-
-**Environment variables:** `CONVOAI_APP_ID`, `CONVOAI_CUSTOMER_ID`, `CONVOAI_CUSTOMER_SECRET`, `CONVOAI_BASE_URL`, `CONVOAI_REGION`
-
----
-
-## Quality
+## Stats
 
 | Metric | Value |
 |--------|-------|
-| TypeScript | Strict mode, zero errors |
-| Tests | 448 passing / 35 files |
-| Security | Config 0600, dir 0700, template name validation, no PII telemetry |
-| Vendor validation | All 31 providers verified against official docs |
-| Error messages | Friendly diagnosis + actionable repair hints for all error codes |
+| Source files | 77 |
+| Source code | ~13,000 lines |
+| Starter template | 20 files, ~1,600 lines |
+| Test files | 41 |
+| Tests passing | 507 / 507 |
+| npm dependencies | agora-rtc-sdk-ng, agora-token, + 9 more |
 
 ---
 
-## Links
-
-- **npm:** https://www.npmjs.com/package/convoai
-- **GitHub:** https://github.com/Coowoolf/convoai-cli
-- **Dashboard:** https://convobench.org/dashboard
-- **Install script:** https://convobench.org/install.sh
-- **Product docs:** [PRODUCT.md](./PRODUCT.md)
-
----
-
-## What's Next
-
-- **ConvoBench:** Automated voice agent quality benchmarking
-- **OpenClaw PR:** Native voice channel for OpenClaw
-- **Session Report:** Post-conversation latency analysis in terminal
-- **Agent personas:** Community-shared voice agent personalities
-
----
-
-*Built with ⚡🐦 by the ConvoAI CLI team.*
+*Built with Claude Code (Opus 4.6)*

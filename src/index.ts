@@ -53,6 +53,12 @@ import { registerOpenClaw } from './commands/openclaw.js';
 // ─── Go ──────────────────────────────────────────────────────────────────────
 import { registerGo } from './commands/go.js';
 
+// ─── Init ────────────────────────────────────────────────────────────────────
+import { registerInit } from './commands/init.js';
+
+// ─── Dev ─────────────────────────────────────────────────────────────────────
+import { registerDev } from './commands/dev.js';
+
 // ─── Completion ───────────────────────────────────────────────────────────────
 import { registerCompletion } from './commands/completion.js';
 
@@ -116,6 +122,8 @@ function customHelp(): string {
   // Group: Start
   lines.push(chalk.bold('Start:'));
   lines.push(`  ${chalk.cyan('go')}                ${chalk.dim('Start a voice conversation (uses last config)')}`);
+  lines.push(`  ${chalk.cyan('init')}              ${chalk.dim('Create a new starter project')}`);
+  lines.push(`  ${chalk.cyan('dev')}               ${chalk.dim('Start starter dev server')}`);
   lines.push(`  ${chalk.cyan('quickstart')}        ${chalk.dim('First-time setup wizard')}`);
   lines.push(`  ${chalk.cyan('openclaw')}          ${chalk.dim('Voice-enable your local OpenClaw \uD83E\uDD9E')}`);
   lines.push('');
@@ -151,6 +159,7 @@ function customHelp(): string {
 
   // Examples
   lines.push(chalk.bold('Examples:'));
+  lines.push(chalk.dim('  convoai init my-app                        Create a new project'));
   lines.push(chalk.dim('  convoai go                                 Resume last conversation'));
   lines.push(chalk.dim('  convoai go --setup                         Re-configure then start'));
   lines.push(chalk.dim('  convoai go --model qwen-max                One-time model override'));
@@ -253,6 +262,12 @@ export function run(): void {
 
   // ── go ─────────────────────────────────────────────────────────────────
   registerGo(program);
+
+  // ── init ───────────────────────────────────────────────────────────────
+  registerInit(program);
+
+  // ── dev ────────────────────────────────────────────────────────────────
+  registerDev(program);
 
   // ── openclaw ───────────────────────────────────────────────────────────
   registerOpenClaw(program);

@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { exec } from 'node:child_process';
 import sessionRouter from './routes/session.js';
 import tokenRouter from './routes/token.js';
 import callbackRouter from './routes/callback.js';
@@ -30,7 +31,7 @@ let sdkCache: Buffer | null = null;
 
 app.get('/agora-sdk.js', (_req, res) => {
   if (!sdkCache) {
-    const sdkPath = require.resolve('agora-rtc-sdk-ng/AgoraRTC_N-production.js');
+    const sdkPath = require.resolve('agora-rtc-sdk-ng');
     sdkCache = readFileSync(sdkPath);
   }
   res.set({
@@ -92,6 +93,11 @@ app.listen(PORT, () => {
   console.log(`    GET  /token           Generate RTC token`);
   console.log(`    GET  /health          Health check`);
   console.log('');
+
+  // Auto-open browser
+  const url = `http://localhost:${PORT}`;
+  const openCmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+  exec(`${openCmd} "${url}"`, () => {});
 
   const required = ['AGORA_APP_ID', 'AGORA_APP_CERTIFICATE', 'AGORA_CUSTOMER_ID', 'AGORA_CUSTOMER_SECRET'];
   const missing = required.filter(k => !process.env[k]);

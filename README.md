@@ -20,15 +20,15 @@ Start, manage, and monitor conversational AI agents from your terminal. One comm
 
 ## Features
 
+- **Developer Platform starter** -- `convoai init` scaffolds a full Web project (frontend + server + Python)
+- **Three-layer architecture** -- Frontend / Customer Server / ConvoAI Engine, clear separation
 - **Full Agora ConvoAI REST API coverage** -- every endpoint, one CLI
-- **Interactive and non-interactive modes** -- prompts when you're exploring, flags when you're scripting
 - **Instant voice chat** -- `convoai go` launches a voice agent and browser client with zero params
+- **Web starter with real-time subtitles** -- dark geek UI, DataStream transcription, mic/mute/interrupt
 - **Real-time agent monitoring** -- live status, latency, and conversation turns in the runtime panel
 - **Built-in presets** -- start with OpenAI, Anthropic, Gemini, or Realtime in one flag
 - **Profile management** -- switch between dev, staging, and prod with a single option
-- **JSON output for scripting** -- pipe `--json` into `jq` for CI/CD pipelines
 - **Shell completions** -- tab-complete commands in bash, zsh, and fish
-- **Project-level config** -- drop a `.convoai.json` in your repo for team-shared defaults
 - **Telephony support (beta)** -- initiate and manage phone calls through ConvoAI
 
 ---
@@ -39,14 +39,13 @@ Start, manage, and monitor conversational AI agents from your terminal. One comm
 # Install globally
 npm install -g convoai
 
-# Authenticate with your Agora credentials
-convoai auth login
+# Create a Web starter project (auto-configures credentials)
+convoai init my-app
+cd my-app && npm install
+convoai dev
 
-# Zero-params instant voice chat (launches browser + agent in one step)
+# Or instant voice chat — zero setup
 convoai go
-
-# Or run guided setup first
-convoai go --setup
 
 # Override the model on the fly
 convoai go --model gpt-4o
@@ -63,6 +62,34 @@ convoai agent turns <agent-id>
 # Done for now
 convoai agent stop <agent-id>
 ```
+
+---
+
+## Developer Platform (v1.6.0)
+
+Build your own voice AI application with a production-ready starter:
+
+```bash
+convoai init my-app    # Scaffold a Web starter project
+cd my-app && npm install
+convoai dev            # Start dev server + auto-open browser
+```
+
+**What you get:**
+
+```
+my-app/
+  frontend/            <- Your UI (HTML/JS/CSS, dark geek theme)
+  server/              <- Your backend (Express + TypeScript)
+  python-server/       <- Alternative Python backend (FastAPI)
+  connectors/          <- Future: telephony, text, IoT
+```
+
+- **Frontend**: Voice conversation UI with real-time subtitles, mic control, interrupt button
+- **Server**: Direct Agora REST API calls, token generation, webhook/knowledge placeholders
+- **Python server**: Same API routes, drop-in replacement for Node server
+- **Auto-credentials**: `convoai init` reads your CLI config or runs inline setup
+- **From local to production**: Same architecture scales — no rewrite needed
 
 ---
 

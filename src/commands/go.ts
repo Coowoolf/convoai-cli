@@ -13,6 +13,7 @@ import { runPanel } from './agent/panel.js';
 import { generateRtcToken } from '../utils/token.js';
 import { findChrome } from '../utils/find-chrome.js';
 import { withSpinner } from '../ui/spinner.js';
+import { createWebHandler } from '../web/serve.js';
 import { printSuccess, printError, printHint } from '../ui/output.js';
 import { printKeyValue } from '../ui/table.js';
 import { handleError } from '../utils/errors.js';
@@ -362,10 +363,7 @@ async function goAction(opts: {
     const httpPort = 3210;
     const wsPort = 3211;
 
-    server = createHttpServer((_, res) => {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(html);
-    });
+    server = createHttpServer(createWebHandler(html));
 
     await new Promise<void>((resolve, reject) => {
       server.listen(httpPort, () => resolve());
@@ -464,10 +462,7 @@ async function goAction(opts: {
     const html = readFileSync(htmlPath, 'utf-8');
     const port = 3210;
 
-    server = createHttpServer((_, res) => {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(html);
-    });
+    server = createHttpServer(createWebHandler(html));
 
     await new Promise<void>((resolve, reject) => {
       server.listen(port, () => resolve());

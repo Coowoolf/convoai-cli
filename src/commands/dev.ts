@@ -1,8 +1,18 @@
 import { Command } from 'commander';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, execSync } from 'node:child_process';
 import chalk from 'chalk';
+
+function readPortFromEnv(cwd: string): number {
+  try {
+    const envPath = join(cwd, '.env');
+    if (!existsSync(envPath)) return 3000;
+    const content = readFileSync(envPath, 'utf-8');
+    const match = content.match(/^PORT=(\d+)/m);
+    return match ? parseInt(match[1], 10) : 3000;
+  } catch { return 3000; }
+}
 
 export function registerDev(program: Command): void {
   program
@@ -39,11 +49,23 @@ export function registerDev(program: Command): void {
         process.exit(1);
       }
 
-      // 3. Delegate to npm run dev
+      // 3. Check if configured port is in use
+      const port = readPortFromEnv(cwd);
+      try {
+        const pids = execSync(`lsof -ti:${port}`, { encoding: 'utf-8' }).trim();
+        if (pids) {
+          console.error(chalk.yellow(`\n  Port ${port} is already in use.`));
+          console.error(chalk.dim('  Stop the other process first, or change PORT in .env\n'));
+          process.exit(1);
+        }
+      } catch { /* no process on port */ }
+
+      // 4. Delegate to npm run dev (shell:true for Windows npm.cmd compat)
+      const isWindows = process.platform === 'win32';
       const child = spawn('npm', ['run', 'dev'], {
         stdio: 'inherit',
         cwd,
-        shell: true,
+        shell: isWindows,
       });
 
       child.on('close', (code) => {

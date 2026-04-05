@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { createServer } from 'node:http';
+import { createWebHandler } from '../../web/serve.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -165,10 +166,7 @@ async function joinAction(opts: {
   const htmlPath = findClientHtml();
   const html = readFileSync(htmlPath, 'utf-8');
 
-  const server = createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(html);
-  });
+  const server = createServer(createWebHandler(html));
 
   await new Promise<void>((resolve, reject) => {
     server.listen(port, () => resolve());

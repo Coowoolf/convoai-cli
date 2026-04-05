@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { createServer as createHttpServer } from 'node:http';
+import { createWebHandler } from '../../web/serve.js';
 import { WebSocketServer, type WebSocket as WS } from 'ws';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -283,10 +284,7 @@ async function chatAction(opts: {
   const htmlPath = findChatHtml();
   const html = readFileSync(htmlPath, 'utf-8');
 
-  const httpServer = createHttpServer((_, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(html);
-  });
+  const httpServer = createHttpServer(createWebHandler(html));
 
   await new Promise<void>((resolve, reject) => {
     httpServer.listen(httpPort, () => resolve());

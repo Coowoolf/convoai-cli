@@ -1,6 +1,6 @@
 {
   "name": "convoai",
-  "version": "1.5.3",
+  "version": "1.6.0",
   "description": "CLI for Agora ConvoAI Engine — start, manage, and monitor conversational AI agents",
   "type": "module",
   "bin": {
@@ -37,11 +37,13 @@
     "dist",
     "bin",
     "src/web",
+    "src/starters",
     "README.md",
     "LICENSE"
   ],
   "license": "MIT",
   "dependencies": {
+    "agora-rtc-sdk-ng": "^4.24.3",
     "agora-token": "^2.0.5",
     "axios": "^1.7.0",
     "chalk": "^5.3.0",

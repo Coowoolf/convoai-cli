@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createWebHandler } from '../web/serve.js';
 import { execSync } from 'node:child_process';
 import chalk from 'chalk';
 import { resolveConfig } from '../config/manager.js';
@@ -378,10 +379,7 @@ async function openclawAction(opts: {
   const httpPort = 3210;
   const wsPort = 3211;
 
-  const webServer = createServer((_, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(html);
-  });
+  const webServer = createServer(createWebHandler(html));
   await new Promise<void>((resolve) => webServer.listen(httpPort, resolve));
 
   const wss = new WebSocketServer({ port: wsPort });

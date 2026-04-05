@@ -3,7 +3,8 @@
 // No dependency on the convoai CLI package — pure HTTP + token generation.
 // Customize: add retry logic, error handling, or additional endpoints as needed.
 
-import { RtcTokenBuilder, RtcRole } from 'agora-token';
+import agoraToken from 'agora-token';
+const { RtcTokenBuilder, RtcRole } = agoraToken;
 
 // ─── Config ────────────────────────────────────────────────────────────────
 
@@ -63,7 +64,7 @@ export interface StartAgentConfig {
   };
   tts: {
     vendor?: string;
-    apiKey?: string;
+    params?: Record<string, unknown>;
   };
   asr?: {
     vendor?: string;
@@ -100,7 +101,8 @@ export async function startAgent(config: StartAgentConfig): Promise<StartAgentRe
       llm: {
         url: llm.url || undefined,
         api_key: llm.apiKey || undefined,
-        vendor: llm.vendor || undefined,
+        // Only set vendor for anthropic/gemini — other vendors use style only
+        vendor: (llm.vendor === 'anthropic' || llm.vendor === 'gemini') ? llm.vendor : undefined,
         style: llm.style || undefined,
         model: llm.model || undefined,
         greeting_message: greeting || 'Hello! How can I help you today?',
@@ -113,15 +115,21 @@ export async function startAgent(config: StartAgentConfig): Promise<StartAgentRe
       },
       tts: {
         vendor: tts.vendor || undefined,
-        params: {
-          key: tts.apiKey || undefined,
-        },
+        params: tts.params || {},
       },
       asr: {
         vendor: asr?.vendor || 'ares',
         language: asr?.language || 'en-US',
       },
+      turn_detection: {
+        silence_duration_ms: 800,
+      },
       parameters: {
+        data_channel: 'datastream',
+        transcript: {
+          enable: true,
+          protocol_version: 'v2',
+        },
         enable_metrics: true,
       },
     },
@@ -163,6 +171,31 @@ export async function stopAgent(
   region: string = 'global',
 ): Promise<void> {
   const url = `${getBaseUrl(appId, region)}/agents/${agentId}/leave`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': getAuthHeader(customerId, customerSecret),
+    },
+    body: '{}',
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`ConvoAI API error (${res.status}): ${text}`);
+  }
+}
+
+// ─── Interrupt Agent ───────────────────────────────────────────────────────
+
+export async function interruptAgent(
+  appId: string,
+  agentId: string,
+  customerId: string,
+  customerSecret: string,
+  region: string = 'global',
+): Promise<void> {
+  const url = `${getBaseUrl(appId, region)}/agents/${agentId}/interrupt`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {

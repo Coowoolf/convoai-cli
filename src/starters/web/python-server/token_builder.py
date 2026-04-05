@@ -37,8 +37,19 @@ def _pack_map_uint32(m: dict[int, int]) -> bytes:
     return result
 
 
-def _pack_service(service_type: int, privileges: dict[int, int]) -> bytes:
-    return _pack_uint16(service_type) + _pack_map_uint32(privileges)
+def _pack_service(
+    service_type: int,
+    privileges: dict[int, int],
+    channel_name: str = "",
+    uid_str: str = "",
+) -> bytes:
+    """Pack an RTC service with privileges and extra fields (channel + uid)."""
+    result = _pack_uint16(service_type)
+    result += _pack_map_uint32(privileges)
+    # Extra data: channel_name + uid (required by AccessToken2 RTC service)
+    result += _pack_string(channel_name)
+    result += _pack_string(uid_str)
+    return result
 
 
 def build_token(
@@ -59,14 +70,19 @@ def build_token(
         PRIVILEGE_PUBLISH_DATA: expire,
     }
 
-    service_data = _pack_service(SERVICE_TYPE_RTC, privileges)
     uid_str = str(uid) if uid > 0 else ""
-    channel_data = _pack_string(channel_name) + _pack_string(uid_str)
+    service_data = _pack_service(
+        SERVICE_TYPE_RTC, privileges, channel_name, uid_str
+    )
 
     salt = secrets.randbelow(0xFFFFFFFF)
     ts = now
 
+    # Message = salt + ts + service_count + services
     message = _pack_uint32(salt) + _pack_uint32(ts) + _pack_uint16(1) + service_data
+
+    # Signing: HMAC-SHA256 over channel_data + message
+    channel_data = _pack_string(channel_name) + _pack_string(uid_str)
     signing_content = channel_data + message
 
     h1 = hmac.new(
