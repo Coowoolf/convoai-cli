@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import chalk from 'chalk';
 import { loadConfig, saveConfig } from '../config/manager.js';
 import { LLM_PROVIDERS, TTS_PROVIDERS } from '../providers/catalog.js';
+import { createClient } from '../api/client.js';
+import { AgentAPI } from '../api/agents.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -80,38 +82,68 @@ async function runInlineSetup(): Promise<void> {
   const overviewHint = isCN ? '总览 → 项目信息' : 'Overview → Project Info';
   const restHint = isCN ? 'RESTful API → 添加密钥' : 'RESTful API → Add Secret';
 
-  // Agora credentials
-  const creds = await inquirer.prompt([
-    {
-      type: 'input', name: 'appId',
-      message: `App ID ${chalk.dim(`(${consoleUrl} → ${overviewHint})`)}:`,
-      default: config.app_id,
-      validate: (v: string) => v.trim().length > 0 || 'Required',
-    },
-    {
-      type: 'password', name: 'appCertificate',
-      message: `App Certificate ${chalk.dim(`(${overviewHint})`)}:`,
-      mask: '*', default: config.app_certificate,
-      validate: (v: string) => v.trim().length > 0 || 'Required',
-    },
-    {
-      type: 'input', name: 'customerId',
-      message: `Customer ID ${chalk.dim(`(${restHint})`)}:`,
-      default: config.customer_id,
-      validate: (v: string) => v.trim().length > 0 || 'Required',
-    },
-    {
-      type: 'password', name: 'customerSecret',
-      message: `Customer Secret ${chalk.dim(`(${restHint})`)}:`,
-      mask: '*', default: config.customer_secret,
-      validate: (v: string) => v.trim().length > 0 || 'Required',
-    },
-  ]);
+  // Agora credentials — validate immediately, loop on failure
+  let credentialsValid = false;
 
-  config.app_id = creds.appId;
-  config.app_certificate = creds.appCertificate;
-  config.customer_id = creds.customerId;
-  config.customer_secret = creds.customerSecret;
+  while (!credentialsValid) {
+    const creds = await inquirer.prompt([
+      {
+        type: 'input', name: 'appId',
+        message: `App ID ${chalk.dim(`(${consoleUrl} → ${overviewHint})`)}:`,
+        default: config.app_id,
+        validate: (v: string) => v.trim().length > 0 || 'Required',
+      },
+      {
+        type: 'password', name: 'appCertificate',
+        message: `App Certificate ${chalk.dim(`(${overviewHint})`)}:`,
+        mask: '*', default: config.app_certificate,
+        validate: (v: string) => v.trim().length > 0 || 'Required',
+      },
+      {
+        type: 'input', name: 'customerId',
+        message: `Customer ID ${chalk.dim(`(${restHint})`)}:`,
+        default: config.customer_id,
+        validate: (v: string) => v.trim().length > 0 || 'Required',
+      },
+      {
+        type: 'password', name: 'customerSecret',
+        message: `Customer Secret ${chalk.dim(`(${restHint})`)}:`,
+        mask: '*', default: config.customer_secret,
+        validate: (v: string) => v.trim().length > 0 || 'Required',
+      },
+    ]);
+
+    config.app_id = creds.appId;
+    config.app_certificate = creds.appCertificate;
+    config.customer_id = creds.customerId;
+    config.customer_secret = creds.customerSecret;
+
+    // Validate credentials
+    const { default: ora } = await import('ora');
+    const spinner = ora(isCN ? '正在验证凭证...' : 'Validating credentials...').start();
+    try {
+      const testClient = createClient({
+        appId: config.app_id!,
+        customerId: config.customer_id!,
+        customerSecret: config.customer_secret!,
+        region: config.region as 'global' | 'cn' | undefined,
+      });
+      const testApi = new AgentAPI(testClient);
+      await testApi.list({ limit: 1 });
+      spinner.succeed(isCN ? '凭证验证通过' : 'Credentials verified');
+      credentialsValid = true;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('401')) {
+        spinner.fail(isCN ? 'Customer ID 或 Customer Secret 不正确' : 'Customer ID or Secret is incorrect');
+      } else if (msg.includes('400') || msg.includes('appid')) {
+        spinner.fail(isCN ? 'App ID 无效' : 'App ID is invalid');
+      } else {
+        spinner.fail(isCN ? `验证失败: ${msg}` : `Validation failed: ${msg}`);
+      }
+      console.log(chalk.dim(isCN ? '  请重新输入\n' : '  Please re-enter.\n'));
+    }
+  }
 
   // LLM
   const llmChoices = LLM_PROVIDERS.map(p => ({ name: `${p.name}${p.note ? ' ' + chalk.dim(p.note) : ''}`, value: p.value }));

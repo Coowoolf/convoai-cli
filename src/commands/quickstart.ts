@@ -207,52 +207,138 @@ async function quickstartAction(): Promise<void> {
   showStep(str.step1, 1, TOTAL_STEPS);
 
   if (needsConfig) {
-    const consoleUrl = platform === 'cn' ? 'console.shengwang.cn' : 'console.agora.io';
-    const overviewHint = platform === 'cn' ? '总览 → 项目信息' : 'Overview → Project Info';
-    const restHint = platform === 'cn' ? 'Developer Toolkit → RESTful API → 添加密钥 → 下载' : 'Developer Toolkit → RESTful API → Add Secret → Download';
+    let credentialsValid = false;
 
-    const creds = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'appId',
-        message: `${str.appId} ${chalk.dim(`(${consoleUrl} → ${overviewHint})`)}:`,
-        default: config.app_id,
-        validate: (v: string) => v.trim().length > 0 || 'Required',
-      },
-      {
-        type: 'password',
-        name: 'appCertificate',
-        message: `${str.appCert} ${chalk.dim(`(${overviewHint})`)}:`,
-        mask: '*',
-        default: config.app_certificate,
-        validate: (v: string) => v.trim().length > 0 || 'Required',
-      },
-      {
-        type: 'input',
-        name: 'customerId',
-        message: `${str.customerId} ${chalk.dim(`(${restHint})`)}:`,
-        default: config.customer_id,
-        validate: (v: string) => v.trim().length > 0 || 'Required',
-      },
-      {
-        type: 'password',
-        name: 'customerSecret',
-        message: `${str.customerSecret} ${chalk.dim(`(${restHint})`)}:`,
-        mask: '*',
-        default: config.customer_secret,
-        validate: (v: string) => v.trim().length > 0 || 'Required',
-      },
-    ]);
+    while (!credentialsValid) {
+      const consoleUrl = platform === 'cn' ? 'console.shengwang.cn' : 'console.agora.io';
+      const overviewHint = platform === 'cn' ? '总览 → 项目信息' : 'Overview → Project Info';
+      const restHint = platform === 'cn' ? 'Developer Toolkit → RESTful API → 添加密钥 → 下载' : 'Developer Toolkit → RESTful API → Add Secret → Download';
 
-    config.app_id = creds.appId;
-    config.app_certificate = creds.appCertificate;
-    config.customer_id = creds.customerId;
-    config.customer_secret = creds.customerSecret;
-    saveConfig(config);
-    printSuccess(str.credentialsSaved);
+      const creds = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'appId',
+          message: `${str.appId} ${chalk.dim(`(${consoleUrl} → ${overviewHint})`)}:`,
+          default: config.app_id,
+          validate: (v: string) => v.trim().length > 0 || 'Required',
+        },
+        {
+          type: 'password',
+          name: 'appCertificate',
+          message: `${str.appCert} ${chalk.dim(`(${overviewHint})`)}:`,
+          mask: '*',
+          default: config.app_certificate,
+          validate: (v: string) => v.trim().length > 0 || 'Required',
+        },
+        {
+          type: 'input',
+          name: 'customerId',
+          message: `${str.customerId} ${chalk.dim(`(${restHint})`)}:`,
+          default: config.customer_id,
+          validate: (v: string) => v.trim().length > 0 || 'Required',
+        },
+        {
+          type: 'password',
+          name: 'customerSecret',
+          message: `${str.customerSecret} ${chalk.dim(`(${restHint})`)}:`,
+          mask: '*',
+          default: config.customer_secret,
+          validate: (v: string) => v.trim().length > 0 || 'Required',
+        },
+      ]);
+
+      config.app_id = creds.appId;
+      config.app_certificate = creds.appCertificate;
+      config.customer_id = creds.customerId;
+      config.customer_secret = creds.customerSecret;
+
+      // Validate credentials immediately
+      try {
+        const testClient = createClient({
+          appId: config.app_id!,
+          customerId: config.customer_id!,
+          customerSecret: config.customer_secret!,
+          region: config.region as 'global' | 'cn' | undefined,
+        });
+        const testApi = new AgentAPI(testClient);
+        await withSpinner(
+          lang === 'cn' ? '正在验证凭证...' : 'Validating credentials...',
+          () => testApi.list({ limit: 1 }),
+        );
+        saveConfig(config);
+        credentialsValid = true;
+        printSuccess(str.credentialsSaved);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('401')) {
+          printError(lang === 'cn'
+            ? '凭证验证失败 — Customer ID 或 Customer Secret 不正确，请重新输入'
+            : 'Credential validation failed — Customer ID or Secret is incorrect. Please re-enter.');
+        } else if (msg.includes('400') || msg.includes('appid')) {
+          printError(lang === 'cn'
+            ? '凭证验证失败 — App ID 无效，请检查后重新输入'
+            : 'Credential validation failed — App ID is invalid. Please re-enter.');
+        } else {
+          printError(lang === 'cn'
+            ? `凭证验证失败: ${msg}，请重新输入`
+            : `Credential validation failed: ${msg}. Please re-enter.`);
+        }
+        // Loop back — defaults will show what user just entered
+      }
+    }
     track('qs_step1');
   } else {
-    printSuccess(`${str.alreadyConfigured} (App ID: ${config.app_id!.slice(0, 8)}...)`);
+    // Credentials exist — validate them before proceeding
+    try {
+      const testClient = createClient({
+        appId: config.app_id!,
+        customerId: config.customer_id!,
+        customerSecret: config.customer_secret!,
+        region: config.region as 'global' | 'cn' | undefined,
+      });
+      const testApi = new AgentAPI(testClient);
+      await withSpinner(
+        lang === 'cn' ? '正在验证凭证...' : 'Validating credentials...',
+        () => testApi.list({ limit: 1 }),
+      );
+      printSuccess(`${str.alreadyConfigured} (App ID: ${config.app_id!.slice(0, 8)}...)`);
+    } catch {
+      // Existing credentials are invalid — enter retry loop
+      printError(lang === 'cn'
+        ? '已保存的凭证无效，请重新输入'
+        : 'Saved credentials are invalid. Please re-enter.');
+
+      let credentialsValid = false;
+      while (!credentialsValid) {
+        const consoleUrl = platform === 'cn' ? 'console.shengwang.cn' : 'console.agora.io';
+        const overviewHint = platform === 'cn' ? '总览 → 项目信息' : 'Overview → Project Info';
+        const restHint = platform === 'cn' ? 'Developer Toolkit → RESTful API → 添加密钥 → 下载' : 'Developer Toolkit → RESTful API → Add Secret → Download';
+
+        const creds = await inquirer.prompt([
+          { type: 'input', name: 'appId', message: `${str.appId}:`, default: config.app_id, validate: (v: string) => v.trim().length > 0 || 'Required' },
+          { type: 'password', name: 'appCertificate', message: `${str.appCert}:`, mask: '*', default: config.app_certificate, validate: (v: string) => v.trim().length > 0 || 'Required' },
+          { type: 'input', name: 'customerId', message: `${str.customerId} ${chalk.dim(`(${restHint})`)}:`, default: config.customer_id, validate: (v: string) => v.trim().length > 0 || 'Required' },
+          { type: 'password', name: 'customerSecret', message: `${str.customerSecret}:`, mask: '*', default: config.customer_secret, validate: (v: string) => v.trim().length > 0 || 'Required' },
+        ]);
+
+        config.app_id = creds.appId;
+        config.app_certificate = creds.appCertificate;
+        config.customer_id = creds.customerId;
+        config.customer_secret = creds.customerSecret;
+
+        try {
+          const retryClient = createClient({ appId: config.app_id!, customerId: config.customer_id!, customerSecret: config.customer_secret!, region: config.region as 'global' | 'cn' | undefined });
+          const retryApi = new AgentAPI(retryClient);
+          await withSpinner(lang === 'cn' ? '正在验证凭证...' : 'Validating credentials...', () => retryApi.list({ limit: 1 }));
+          saveConfig(config);
+          credentialsValid = true;
+          printSuccess(str.credentialsSaved);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          printError(lang === 'cn' ? `凭证验证失败: ${msg}，请重新输入` : `Validation failed: ${msg}. Please re-enter.`);
+        }
+      }
+    }
     track('qs_step1');
   }
 
@@ -671,20 +757,14 @@ async function quickstartAction(): Promise<void> {
   });
   const api = new AgentAPI(client);
 
-  // Verify credentials before starting agent
+  // Verify credentials (should already be validated in Step 1, but just in case)
   try {
     await withSpinner(str.verifying, () => api.list({ limit: 1 }));
     printSuccess(str.verified);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('401')) {
-      printError('Authentication failed (401). Your Customer ID or Customer Secret is incorrect.');
-      const consoleUrl = lang === 'cn' ? 'https://console.shengwang.cn' : 'https://console.agora.io';
-      printHint(`Check your credentials at ${consoleUrl}`);
-      printHint('Run `convoai config init` to reconfigure.');
-    } else {
-      printError(`Connection failed: ${msg}`);
-    }
+    printError(lang === 'cn' ? `凭证验证失败: ${msg}` : `Credential check failed: ${msg}`);
+    printHint(lang === 'cn' ? '运行 convoai quickstart 重新配置' : 'Run `convoai quickstart` to reconfigure.');
     process.exit(1);
   }
 
@@ -730,8 +810,20 @@ async function quickstartAction(): Promise<void> {
   let result;
   try {
     result = await withSpinner(str.starting, () => api.start(request));
-  } catch (err) {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
     track('error', { error_type: 'agent_start_failed' });
+
+    // Check if it's a credential/appid error
+    if (msg.includes('appid') || msg.includes('401') || msg.includes('allocate failed')) {
+      printError(lang === 'cn'
+        ? `启动失败: ${msg}`
+        : `Agent start failed: ${msg}`);
+      printHint(lang === 'cn'
+        ? '凭证可能有误，运行 convoai quickstart 重新配置'
+        : 'Credentials may be wrong. Run `convoai quickstart` to reconfigure.');
+      process.exit(1);
+    }
     throw err;
   }
 
