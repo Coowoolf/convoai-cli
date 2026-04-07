@@ -8,27 +8,26 @@ const LLMPartialSchema = z.object({
   vendor: z.string().optional(),
   style: z.enum(['openai', 'gemini', 'anthropic', 'dify']).optional(),
   model: z.string().optional(),
-  system_messages: z
-    .array(z.object({ role: z.string(), content: z.string() }))
-    .optional(),
+  headers: z.string().optional(),
+  system_messages: z.array(z.record(z.unknown())).optional(),
   greeting_message: z.string().optional(),
   failure_message: z.string().optional(),
   max_history: z.number().optional(),
   input_modalities: z.array(z.string()).optional(),
   output_modalities: z.array(z.string()).optional(),
   params: z.record(z.unknown()).optional(),
-}).strict().optional();
+}).passthrough().optional();
 
 const TTSPartialSchema = z.object({
   vendor: z.string().optional(),
   params: z.record(z.unknown()).optional(),
-}).strict().optional();
+}).passthrough().optional();
 
 const ASRPartialSchema = z.object({
   language: z.string().optional(),
   vendor: z.string().optional(),
   params: z.record(z.unknown()).optional(),
-}).strict().optional();
+}).passthrough().optional();
 
 // ─── Profile Config ─────────────────────────────────────────────────────────
 
@@ -41,7 +40,8 @@ export const ProfileConfigSchema = z.object({
   llm: LLMPartialSchema,
   tts: TTSPartialSchema,
   asr: ASRPartialSchema,
-});
+  turn_detection: z.record(z.unknown()).optional(),
+}).passthrough();
 
 // ─── Top-Level Config ───────────────────────────────────────────────────────
 

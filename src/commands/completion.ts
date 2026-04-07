@@ -7,10 +7,10 @@ import { handleError } from '../utils/errors.js';
 
 // ─── Completion Data ──────────────────────────────────────────────────────
 
-const TOP_LEVEL_COMMANDS = ['auth', 'agent', 'call', 'config', 'preset', 'template', 'completion', 'repl'];
+const TOP_LEVEL_COMMANDS = ['go', 'init', 'dev', 'quickstart', 'openclaw', 'auth', 'agent', 'call', 'config', 'preset', 'template', 'token', 'completion'];
 
 const SUBCOMMANDS: Record<string, string[]> = {
-  agent: ['start', 'stop', 'status', 'list', 'update', 'speak', 'interrupt', 'history', 'turns', 'watch'],
+  agent: ['start', 'stop', 'status', 'list', 'update', 'speak', 'interrupt', 'history', 'turns', 'join', 'chat', 'panel'],
   auth: ['login', 'logout', 'status'],
   call: ['initiate', 'hangup', 'status'],
   config: ['init', 'set', 'get', 'show', 'path'],

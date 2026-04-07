@@ -69,15 +69,15 @@ describe('validateConfig', () => {
     expect(() => validateConfig(invalid)).toThrow();
   });
 
-  it('rejects unknown top-level fields in nested objects', () => {
+  it('allows unknown fields in nested objects (passthrough)', () => {
     const config = {
       profiles: {
         test: {
-          llm: { vendor: 'openai', unknown_field: 'bad' },
+          llm: { vendor: 'openai', unknown_field: 'extra' },
         },
       },
     };
-    expect(() => validateConfig(config)).toThrow();
+    expect(() => validateConfig(config)).not.toThrow();
   });
 });
 

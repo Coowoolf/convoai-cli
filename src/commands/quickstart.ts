@@ -487,10 +487,16 @@ async function quickstartAction(): Promise<void> {
     ]);
 
     if (!llmApiKey) {
-      const msg = platform === 'cn' ? '已跳过 LLM 配置，稍后可用 convoai go --setup 补全' : 'LLM skipped. Run convoai go --setup later to configure.';
-      console.log(chalk.dim(`  ${msg}`));
+      printSuccess(lang === 'cn'
+        ? '已跳过 LLM 配置。配置完成后运行 convoai go --setup 补全 LLM 和 TTS。'
+        : 'LLM skipped. Run convoai go --setup to configure LLM and TTS later.');
+      saveConfig(config);
       track('qs_step3');
-      // Skip to TTS step — don't save incomplete LLM
+      console.log('');
+      console.log(chalk.bold(lang === 'cn' ? '  下一步:' : '  Next:'));
+      console.log(chalk.cyan('    convoai go --setup'));
+      console.log('');
+      return; // Don't proceed to TTS/agent without LLM
     } else {
 
     // Model — list if provider has models, otherwise free input

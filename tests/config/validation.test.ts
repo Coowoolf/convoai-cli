@@ -112,16 +112,16 @@ describe('Config Validation - Stress Tests', () => {
     expect(result.profiles?.test?.llm?.system_messages).toHaveLength(2);
   });
 
-  it('rejects system_messages with wrong shape', () => {
+  it('accepts system_messages with any object shape (Gemini parts format)', () => {
     expect(() =>
       validateConfig({
         profiles: {
           test: {
-            llm: { system_messages: [{ wrong: 'shape' }] },
+            llm: { system_messages: [{ parts: [{ text: 'hello' }], role: 'user' }] },
           },
         },
       }),
-    ).toThrow();
+    ).not.toThrow();
   });
 
   it('accepts LLM params as record', () => {

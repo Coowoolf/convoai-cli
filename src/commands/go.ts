@@ -241,10 +241,16 @@ async function goAction(opts: {
   // Step 4: Cleanup leftover agents + ports
   // ═════════════════════════════════════════════════════════════════════════
 
-  // Kill leftover processes on ports 3210 and 3211
+  // Check for leftover processes on ports 3210/3211
   try {
-    execSync('lsof -ti:3210,3211 | xargs kill -9 2>/dev/null', { stdio: 'ignore' });
-    await new Promise(r => setTimeout(r, 300));
+    const pids = execSync('lsof -ti:3210,3211', { encoding: 'utf-8' }).trim();
+    if (pids) {
+      printHint(lang === 'cn'
+        ? '端口 3210/3211 被占用，正在释放...'
+        : 'Ports 3210/3211 in use, releasing...');
+      execSync(`kill ${pids.split('\n').join(' ')}`, { stdio: 'ignore' });
+      await new Promise(r => setTimeout(r, 300));
+    }
   } catch { /* no leftover processes */ }
 
   // Stop any running agents
@@ -273,8 +279,9 @@ async function goAction(opts: {
   const agentUid = 0;
   const clientUid = 12345;
 
-  const agentToken = await generateRtcToken(channelName, agentUid);
-  const clientToken = await generateRtcToken(channelName, clientUid);
+  const appCert = process.env.AGORA_APP_CERTIFICATE ?? configObj.app_certificate;
+  const agentToken = await generateRtcToken(channelName, agentUid, 86400, config.app_id, appCert);
+  const clientToken = await generateRtcToken(channelName, clientUid, 86400, config.app_id, appCert);
 
   if (!agentToken) {
     printError(lang === 'cn'

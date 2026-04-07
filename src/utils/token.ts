@@ -2,17 +2,18 @@ import { loadConfig } from '../config/manager.js';
 
 /**
  * Generate an RTC token for agent authentication.
- * Uses app_certificate from config or AGORA_APP_CERTIFICATE env var.
- * Returns undefined if no certificate is available (app may not require tokens).
+ * Accepts explicit appId/certificate or falls back to config/env.
  */
 export async function generateRtcToken(
   channelName: string,
   uid: number = 0,
   expireSeconds: number = 86400,
+  overrideAppId?: string,
+  overrideCertificate?: string,
 ): Promise<string | undefined> {
   const config = loadConfig();
-  const appId = config.app_id;
-  const certificate = process.env.AGORA_APP_CERTIFICATE ?? config.app_certificate;
+  const appId = overrideAppId ?? config.app_id;
+  const certificate = overrideCertificate ?? process.env.AGORA_APP_CERTIFICATE ?? config.app_certificate;
 
   if (!appId || !certificate) {
     return undefined;
@@ -34,7 +35,6 @@ export async function generateRtcToken(
       expireTs,
     );
   } catch {
-    // agora-token not installed or token generation failed
     return undefined;
   }
 }
