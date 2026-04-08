@@ -233,7 +233,15 @@ export function registerPhoneSend(phone: Command): void {
           const totalSec = Math.floor((Date.now() - startTime) / 1000);
           const totalMm = String(Math.floor(totalSec / 60));
           const totalSs = String(totalSec % 60).padStart(2, '0');
-          spinner.succeed(`Call ended (duration: ${totalMm}:${totalSs})`);
+
+          if (lastStatus === 'STOPPED' || lastStatus === 'FAILED') {
+            spinner.succeed(`Call ended (duration: ${totalMm}:${totalSs})`);
+          } else {
+            // Wait timed out but call may still be active
+            spinner.warn(`Wait timeout (${totalMm}:${totalSs}). Call may still be active.`);
+            printHint(`convoai phone status ${result.agent_id}`);
+            printHint(`convoai phone hangup ${result.agent_id}`);
+          }
         } else {
           printHint(`Run: convoai phone status ${result.agent_id}`);
         }

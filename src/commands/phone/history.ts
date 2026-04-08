@@ -21,8 +21,13 @@ export function registerPhoneHistory(phone: Command): void {
     .action(async (opts) => {
       try {
         const api = getCallAPI(opts.profile);
-        const result = await api.list({ limit: parseInt(opts.limit, 10) || 20 });
-        const list = result.data?.list ?? [];
+        // Fetch more than requested — we filter client-side by channel prefix
+        const result = await api.list({ limit: (parseInt(opts.limit, 10) || 20) * 3 });
+        const allList = result.data?.list ?? [];
+        // Filter to telephony sessions (channel starts with "call-" or "qs-call-")
+        const list = allList
+          .filter(c => c.channel?.startsWith('call-') || c.channel?.startsWith('qs-call-'))
+          .slice(0, parseInt(opts.limit, 10) || 20);
 
         if (opts.json) {
           console.log(JSON.stringify(list, null, 2));

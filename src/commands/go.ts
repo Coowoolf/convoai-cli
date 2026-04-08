@@ -223,13 +223,24 @@ async function goAction(opts: {
 
     const llm: Record<string, unknown> = { ...(profile as Record<string, unknown>).llm ?? {} };
     llm.system_messages = [{ role: 'system', content: task }];
+    // Apply --model override
+    if (opts.model) {
+      if (!llm.params) llm.params = {};
+      (llm.params as Record<string, unknown>).model = opts.model;
+    }
+    // Apply --tts override
+    const tts: Record<string, unknown> = { ...(profile.tts ?? {}) };
+    if (opts.tts) tts.vendor = opts.tts;
+    // Apply --asr override
+    const asr: Record<string, unknown> = { ...(profile.asr ?? {}) };
+    if (opts.asr) asr.vendor = opts.asr;
 
     const request = {
       name: `call-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       sip: { to_number: toNumber, from_number: picked.phone_number, rtc_uid: '1', rtc_token: sipToken },
       properties: {
         channel: channelName, token: agentToken, agent_rtc_uid: '0', remote_rtc_uids: ['1'],
-        idle_timeout: 600, llm, tts: profile.tts ?? {}, asr: profile.asr ?? {},
+        idle_timeout: 600, llm, tts, asr,
       },
     };
 

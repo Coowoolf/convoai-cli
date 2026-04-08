@@ -56,11 +56,17 @@ export function getNumberAPI(profileName?: string): NumberAPI {
   requireCredentials(config);
 
   const region = config.region ?? 'global';
-  const baseURLs: Record<string, string> = {
-    global: 'https://api.agora.io/api/conversational-ai-agent/v2',
-    cn: 'https://api.agora.io/cn/api/conversational-ai-agent/v2',
-  };
-  const baseURL = baseURLs[region] ?? baseURLs.global;
+  let baseURL: string;
+  if (config.base_url) {
+    // Custom base URL: strip /projects/{appId} suffix if present, keep the base
+    baseURL = config.base_url.replace(/\/projects\/[^/]+\/?$/, '');
+  } else {
+    const baseURLs: Record<string, string> = {
+      global: 'https://api.agora.io/api/conversational-ai-agent/v2',
+      cn: 'https://api.agora.io/cn/api/conversational-ai-agent/v2',
+    };
+    baseURL = baseURLs[region] ?? baseURLs.global;
+  }
   const credentials = Buffer.from(`${config.customer_id}:${config.customer_secret}`).toString('base64');
 
   const client = axios.create({
