@@ -28,8 +28,9 @@ Start, manage, and monitor conversational AI agents from your terminal. One comm
 - **Real-time agent monitoring** -- live status, latency, and conversation turns in the runtime panel
 - **Built-in presets** -- start with OpenAI, Anthropic, Gemini, or Realtime in one flag
 - **Profile management** -- switch between dev, staging, and prod with a single option
+- **Phone calls** -- `convoai phone send` makes outbound calls with SIP, `--wait` shows live status
+- **Number management** -- import, list, update, remove phone numbers (Twilio or BYO SIP)
 - **Shell completions** -- tab-complete commands in bash, zsh, and fish
-- **Telephony support (beta)** -- initiate and manage phone calls through ConvoAI
 
 ---
 
@@ -46,6 +47,9 @@ convoai dev
 
 # Or instant voice chat — zero setup
 convoai go
+
+# Or make a phone call
+convoai phone send
 
 # Override the model on the fly
 convoai go --model gpt-4o
@@ -90,6 +94,31 @@ my-app/
 - **Python server**: Same API routes, drop-in replacement for Node server
 - **Auto-credentials**: `convoai init` reads your CLI config or runs inline setup
 - **From local to production**: Same architecture scales — no rewrite needed
+
+---
+
+## Phone Calls (v1.7.0)
+
+Make outbound phone calls with AI agents:
+
+```bash
+# Interactive — prompts for everything
+convoai phone send
+
+# Or with flags
+convoai phone send --from +15551234567 --to +15559876543 --task "Ask about demo" --wait
+
+# Quick call from go
+convoai go --call
+```
+
+**Number management:**
+
+```bash
+convoai phone import          # Import a number (Twilio or BYO SIP)
+convoai phone numbers         # List your numbers
+convoai phone remove <num>    # Remove a number
+```
 
 ---
 

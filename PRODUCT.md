@@ -10,7 +10,7 @@
 
 **Mascot:** ⚡🐦 Blue Thunderbird
 
-**Version:** 1.6.0  
+**Version:** 1.7.0  
 **License:** MIT  
 **Runtime:** Node.js >= 18.0.0
 

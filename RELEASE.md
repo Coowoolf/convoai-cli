@@ -1,43 +1,51 @@
-# ConvoAI CLI v1.6.0 — Release Notes
+# ConvoAI CLI v1.7.0 — Release Notes
 
-> **From CLI Tool to Developer Platform.**
+> **Telephony: Phone Calls & Number Management**
 
 ```bash
 npm install -g convoai
-convoai init my-app && cd my-app && npm install && convoai dev
+convoai phone send
 ```
 
 ---
 
 ## Highlights
 
-### Developer Platform: `convoai init` + `convoai dev`
-
-Scaffold a complete Web starter project with one command. Three-layer architecture (Frontend / Customer Server / ConvoAI Engine) with clear separation.
+### Phone Calls from Your Terminal
 
 ```bash
-convoai init my-app    # Creates project with all files + credentials
-cd my-app && npm install
-convoai dev            # Starts server, auto-opens browser
+# Interactive mode — prompts for everything
+convoai phone send
+
+# Flag mode — for scripts and automation
+convoai phone send --from +15551234567 --to +15559876543 --task "Ask about demo" --wait
+
+# Quick call from go
+convoai go --call
 ```
 
-**What you get:**
-- `frontend/` — Dark geek UI (Happy Hues #4), voice conversation, real-time subtitles, mic/mute, interrupt
-- `server/` — Express + TypeScript, direct Agora REST API calls, token generation, webhook placeholders
-- `python-server/` — FastAPI alternative with pure Python token builder, same API routes
-- `connectors/` — Architecture docs for future Telephony / IoT / Text extensions
+`--wait` shows live call status:
+```
+✓ Call initiated
+  ⠋ Ringing...
+  ⠋ In conversation (0:32)
+  ✓ Call ended (duration: 0:47)
+```
 
-### Inline Credential Setup
+### Phone Number Management
 
-`convoai init` auto-detects if you have Agora credentials. If not, it runs an inline wizard (Platform, Agora keys, LLM provider, TTS provider) — no need to run `quickstart` separately.
+```bash
+convoai phone import          # Interactive SIP config (Twilio or BYO)
+convoai phone numbers         # List imported numbers
+convoai phone number <num>    # View details
+convoai phone update <num>    # Update config
+convoai phone remove <num>    # Delete
+```
 
-### Agora RTC SDK via NPM
+### Quickstart + Go Integration
 
-Switched from CDN `<script>` to npm package `agora-rtc-sdk-ng`. Every `npm install -g convoai` and every `npm install` in a starter project counts as an npm download.
-
-### Real-time User Subtitles
-
-DataStream-based transcription shows what you're saying in real-time (partial + final). Agent responses via history API fallback.
+- `convoai quickstart` Step 5 now offers: Voice Chat / Phone Call / OpenClaw
+- `convoai go --call` enters phone call mode with `--model/--tts/--asr` overrides
 
 ---
 
@@ -45,28 +53,33 @@ DataStream-based transcription shows what you're saying in real-time (partial + 
 
 | Command | Description |
 |---------|-------------|
-| `convoai init [name]` | Create a new starter project (defaults to `my-convoai-app`) |
-| `convoai dev` | Start the starter's dev server (delegates to `npm run dev`) |
+| `phone send` | Make an outbound phone call |
+| `phone numbers` | List imported numbers |
+| `phone import` | Import a number with SIP config |
+| `phone number <num>` | Number details |
+| `phone update <num>` | Update number config |
+| `phone remove <num>` | Delete a number |
+| `phone hangup <id>` | End an active call |
+| `phone status <id>` | Check call status |
+| `phone history` | Recent calls |
+| `go --call` | Phone call mode in go |
 
-## Improvements
+## Deprecations
 
-- **Port conflict detection** — `convoai dev` checks the configured PORT before starting, shows clear error
-- **Windows compatibility** — `convoai dev` uses `shell: true` on Windows for `npm.cmd`
-- **Gemini URL resolution** — `{model}` and `{api_key}` placeholders resolved during init
-- **TTS provider params** — MiniMax group_id, Microsoft region/voice, OpenAI api_key all handled correctly
-- **Credential validation** — Session start returns 503 with clear message when .env is empty
-- **SDK resolve fix** — `require.resolve('agora-rtc-sdk-ng')` instead of blocked subpath
+| Old | New | Status |
+|-----|-----|--------|
+| `call initiate` | `phone send` | Works with warning + flag mapping |
+| `call hangup` | `phone hangup` | Works with warning |
+| `call status` | `phone status` | Works with warning |
 
 ## Stats
 
 | Metric | Value |
 |--------|-------|
-| Source files | 77 |
-| Source code | ~13,000 lines |
-| Starter template | 20 files, ~1,600 lines |
-| Test files | 41 |
-| Tests passing | 507 / 507 |
-| npm dependencies | agora-rtc-sdk-ng, agora-token, + 9 more |
+| New files | 12 |
+| Source code | ~15,000 lines |
+| Tests | 519 / 519 |
+| npm | [convoai@1.7.0](https://www.npmjs.com/package/convoai) |
 
 ---
 
