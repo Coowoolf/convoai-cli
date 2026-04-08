@@ -125,6 +125,7 @@ export function registerGo(program: Command): void {
     .option('--asr <vendor>', 'One-time ASR override')
     .option('--browser', 'Force browser mode')
     .option('--profile <name>', 'Config profile')
+    .option('--call', 'Make a phone call instead of voice chat')
     .action(async (opts) => {
       try {
         await goAction(opts);
@@ -144,6 +145,7 @@ async function goAction(opts: {
   asr?: string;
   browser?: boolean;
   profile?: string;
+  call?: boolean;
 }): Promise<void> {
 
   // ═════════════════════════════════════════════════════════════════════════
@@ -178,6 +180,64 @@ async function goAction(opts: {
       ? '\u8FD0\u884C: convoai config set app_certificate <cert>'
       : 'Run: convoai config set app_certificate <cert>');
     process.exit(1);
+  }
+
+  // ── Phone call mode ──────────────────────────────────────────────────
+  if (opts.call) {
+    const { getCallAPI, getNumberAPI, getConfig, validateE164, pickOutboundNumber } = await import('./phone/_helpers.js');
+    const { generateRtcToken } = await import('../utils/token.js');
+    const { withSpinner } = await import('../ui/spinner.js');
+    const numberApi = getNumberAPI(opts.profile);
+    const callApi = getCallAPI(opts.profile);
+    const { default: inquirer } = await import('inquirer');
+
+    // Get numbers
+    let numbers = await numberApi.list();
+    if (numbers.length === 0) {
+      printError(lang === 'cn' ? '没有电话号码。先导入一个。' : 'No phone numbers. Import one first.');
+      printHint('convoai phone import');
+      process.exit(1);
+    }
+
+    const picked = await pickOutboundNumber(numbers);
+    const { to } = await inquirer.prompt([{
+      type: 'input', name: 'to', message: lang === 'cn' ? '拨打号码 (E.164):' : 'To number (E.164):',
+      validate: (v: string) => /^\+[1-9]\d{1,14}$/.test(v.trim()) || 'Invalid E.164',
+    }]);
+    const toNumber = validateE164(to);
+
+    const { task } = await inquirer.prompt([{
+      type: 'input', name: 'task', message: lang === 'cn' ? '任务/提示:' : 'Task/prompt:',
+      default: lang === 'cn' ? '你是一个友好的AI语音助手。' : 'You are a friendly AI voice assistant.',
+    }]);
+
+    const channelName = `call-${Date.now().toString(36)}`;
+    const appCert = process.env.AGORA_APP_CERTIFICATE ?? configObj.app_certificate;
+    const agentToken = await generateRtcToken(channelName, 0, 86400, config.app_id, appCert);
+    const sipToken = await generateRtcToken(channelName, 1, 86400, config.app_id, appCert);
+
+    if (!agentToken || !sipToken) {
+      printError(lang === 'cn' ? 'Token 生成失败' : 'Token generation failed');
+      process.exit(1);
+    }
+
+    const llm: Record<string, unknown> = { ...(profile as Record<string, unknown>).llm ?? {} };
+    llm.system_messages = [{ role: 'system', content: task }];
+
+    const request = {
+      name: `call-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      sip: { to_number: toNumber, from_number: picked.phone_number, rtc_uid: '1', rtc_token: sipToken },
+      properties: {
+        channel: channelName, token: agentToken, agent_rtc_uid: '0', remote_rtc_uids: ['1'],
+        idle_timeout: 600, llm, tts: profile.tts ?? {}, asr: profile.asr ?? {},
+      },
+    };
+
+    const result = await withSpinner(lang === 'cn' ? '正在拨号...' : 'Calling...', () => callApi.send(request));
+    printSuccess(`${lang === 'cn' ? '呼叫已发起' : 'Call initiated'} (${result.agent_id})`);
+    printHint(`convoai phone status ${result.agent_id}`);
+    track('go_call');
+    return;
   }
 
   // Check LLM
