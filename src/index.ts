@@ -50,6 +50,17 @@ import { registerQuickstart } from './commands/quickstart.js';
 // ─── OpenClaw ─────────────────────────────────────────────────────────────
 import { registerOpenClaw } from './commands/openclaw.js';
 
+// ─── Phone Commands ──────────────────────────────────────────────────────
+import { registerPhoneSend } from './commands/phone/send.js';
+import { registerPhoneNumbers } from './commands/phone/numbers.js';
+import { registerPhoneImport } from './commands/phone/import.js';
+import { registerPhoneGet } from './commands/phone/get.js';
+import { registerPhoneUpdate } from './commands/phone/update.js';
+import { registerPhoneRemove } from './commands/phone/remove.js';
+import { registerPhoneHangup } from './commands/phone/hangup.js';
+import { registerPhoneStatus } from './commands/phone/status.js';
+import { registerPhoneHistory } from './commands/phone/history.js';
+
 // ─── Go ──────────────────────────────────────────────────────────────────────
 import { registerGo } from './commands/go.js';
 
@@ -128,6 +139,16 @@ function customHelp(): string {
   lines.push(`  ${chalk.cyan('openclaw')}          ${chalk.dim('Voice-enable your local OpenClaw \uD83E\uDD9E')}`);
   lines.push('');
 
+  // Group: Phone
+  lines.push(chalk.bold('Phone:'));
+  lines.push(`  ${chalk.cyan('phone send')}        ${chalk.dim('Make an outbound phone call')}`);
+  lines.push(`  ${chalk.cyan('phone numbers')}     ${chalk.dim('List imported phone numbers')}`);
+  lines.push(`  ${chalk.cyan('phone import')}      ${chalk.dim('Import a new number')}`);
+  lines.push(`  ${chalk.cyan('phone hangup')}      ${chalk.dim('End an active call')}`);
+  lines.push(`  ${chalk.cyan('phone status')}      ${chalk.dim('Check call status')}`);
+  lines.push(`  ${chalk.cyan('phone history')}     ${chalk.dim('Recent calls')}`);
+  lines.push('');
+
   // Group: Agent
   lines.push(chalk.bold('Agent:'));
   lines.push(`  ${chalk.cyan('agent join')}        ${chalk.dim('Join a channel with full control')}`);
@@ -153,7 +174,10 @@ function customHelp(): string {
   lines.push(`  ${chalk.cyan('token')}             ${chalk.dim('Generate RTC token')}`);
   lines.push(`  ${chalk.cyan('preset list')}       ${chalk.dim('List built-in presets')}`);
   lines.push(`  ${chalk.cyan('template')} *        ${chalk.dim('Manage agent templates')}`);
-  lines.push(`  ${chalk.cyan('call')} *            ${chalk.dim('Telephony (Beta)')}`);
+  lines.push(`  ${chalk.cyan('phone number')}      ${chalk.dim('View number details')}`);
+  lines.push(`  ${chalk.cyan('phone update')}      ${chalk.dim('Update number configuration')}`);
+  lines.push(`  ${chalk.cyan('phone remove')}      ${chalk.dim('Remove a number')}`);
+  lines.push(`  ${chalk.cyan('call')} *            ${chalk.dim('Telephony (deprecated, use phone)')}`);
   lines.push(`  ${chalk.cyan('completion')}        ${chalk.dim('Shell completions')}`);
   lines.push('');
 
@@ -165,6 +189,8 @@ function customHelp(): string {
   lines.push(chalk.dim('  convoai go --model qwen-max                One-time model override'));
   lines.push(chalk.dim('  convoai agent join -c room1                Join a specific channel'));
   lines.push(chalk.dim('  convoai openclaw                           Talk to OpenClaw by voice'));
+  lines.push(chalk.dim('  convoai phone send                         Make a phone call'));
+  lines.push(chalk.dim('  convoai go --call                          Phone call mode'));
   lines.push('');
 
   lines.push(chalk.dim('  Docs: github.com/Coowoolf/convoai-cli'));
@@ -215,10 +241,10 @@ export function run(): void {
   registerAgentTurns(agent);
   registerAgentJoin(agent);
 
-  // ── call ────────────────────────────────────────────────────────────────
+  // ── call (deprecated — use phone) ──────────────────────────────────────
   const call = program
     .command('call')
-    .description('Manage phone calls (telephony)');
+    .description('(deprecated) Use "phone" instead');
 
   registerCallInitiate(call);
   registerCallHangup(call);
@@ -271,6 +297,21 @@ export function run(): void {
 
   // ── openclaw ───────────────────────────────────────────────────────────
   registerOpenClaw(program);
+
+  // ── phone ──────────────────────────────────────────────────────────────
+  const phone = program
+    .command('phone')
+    .description('Phone calls and number management');
+
+  registerPhoneSend(phone);
+  registerPhoneNumbers(phone);
+  registerPhoneImport(phone);
+  registerPhoneGet(phone);
+  registerPhoneUpdate(phone);
+  registerPhoneRemove(phone);
+  registerPhoneHangup(phone);
+  registerPhoneStatus(phone);
+  registerPhoneHistory(phone);
 
   // ── token ───────────────────────────────────────────────────────────────
   registerToken(program);
