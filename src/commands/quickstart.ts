@@ -723,7 +723,7 @@ async function quickstartAction(): Promise<void> {
   console.log('');
   showStep(str.step5, 5, TOTAL_STEPS);
 
-  // Detect OpenClaw and offer voice integration
+  // Detect OpenClaw
   let hasOpenClaw = false;
   try {
     const { execSync: exec } = await import('node:child_process');
@@ -731,29 +731,106 @@ async function quickstartAction(): Promise<void> {
     hasOpenClaw = true;
   } catch { /* not installed */ }
 
+  // Always offer mode choice
+  const modeChoices = [
+    { name: lang === 'cn' ? '🎙 语音对话 (浏览器)' : '🎙 Voice chat (browser)', value: 'voice' },
+    { name: lang === 'cn' ? '📞 打电话' : '📞 Make a phone call', value: 'phone' },
+  ];
   if (hasOpenClaw) {
-    const { mode } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'mode',
-        message: str.launchMode + ':',
-        choices: [
-          { name: str.launchConvoai, value: 'convoai' },
-          { name: str.launchOpenclaw, value: 'openclaw' },
-        ],
-      },
-    ]);
+    modeChoices.push({ name: '🦞 OpenClaw voice mode', value: 'openclaw' });
+  }
 
-    if (mode === 'openclaw') {
-      printSuccess('Launching OpenClaw voice mode...');
-      track('qs_openclaw');
-      const { execSync: exec } = await import('node:child_process');
-      // Hand off to convoai openclaw — exec replaces this process
-      const convoaiBin = process.argv[1];
-      exec(`node ${convoaiBin} openclaw`, { stdio: 'inherit' });
+  const { mode } = await inquirer.prompt([{
+    type: 'list', name: 'mode',
+    message: lang === 'cn' ? '选择体验方式:' : 'How to experience?',
+    choices: modeChoices,
+  }]);
+
+  if (mode === 'openclaw') {
+    printSuccess('Launching OpenClaw voice mode...');
+    track('qs_openclaw');
+    const { execSync: exec } = await import('node:child_process');
+    const convoaiBin = process.argv[1];
+    exec(`node ${convoaiBin} openclaw`, { stdio: 'inherit' });
+    process.exit(0);
+  }
+
+  if (mode === 'phone') {
+    // Phone call flow
+    try {
+      const { getCallAPI, getNumberAPI, getConfig, validateE164, pickOutboundNumber } = await import('./phone/_helpers.js');
+      const { generateRtcToken } = await import('../utils/token.js');
+
+      const numberApi = getNumberAPI();
+      const callApi = getCallAPI();
+      let numbers = await numberApi.list();
+
+      if (numbers.length === 0) {
+        printHint(lang === 'cn' ? '没有电话号码，请先导入' : 'No phone numbers. Import one first.');
+        printHint('convoai phone import');
+        process.exit(0);
+      }
+
+      const picked = await pickOutboundNumber(numbers);
+
+      const { to } = await inquirer.prompt([{
+        type: 'input', name: 'to',
+        message: lang === 'cn' ? '拨打号码 (E.164):' : 'To number (E.164):',
+        validate: (v: string) => /^\+[1-9]\d{1,14}$/.test(v.trim()) || 'Invalid E.164',
+      }]);
+
+      const channelName = `qs-call-${Date.now().toString(36)}`;
+      const appCert = process.env.AGORA_APP_CERTIFICATE ?? config.app_certificate;
+      const agentToken = await generateRtcToken(channelName, 0, 86400, config.app_id, appCert);
+      const sipToken = await generateRtcToken(channelName, 1, 86400, config.app_id, appCert);
+
+      if (!agentToken || !sipToken) {
+        printError(lang === 'cn' ? 'Token 生成失败' : 'Token generation failed');
+        process.exit(1);
+      }
+
+      const llm: Record<string, unknown> = { ...(profile.llm ?? {}) };
+      const request = {
+        name: `qs-call-${Date.now()}`,
+        sip: { to_number: validateE164(to), from_number: picked.phone_number, rtc_uid: '1', rtc_token: sipToken },
+        properties: {
+          channel: channelName, token: agentToken, agent_rtc_uid: '0', remote_rtc_uids: ['1'],
+          idle_timeout: 600, llm, tts: profile.tts ?? {}, asr: profile.asr ?? {},
+        },
+      };
+
+      const result = await withSpinner(lang === 'cn' ? '正在拨号...' : 'Calling...', () => callApi.send(request));
+      printSuccess(`${lang === 'cn' ? '呼叫已发起' : 'Call initiated'} (${result.agent_id})`);
+      track('qs_step5_phone');
+
+      // Wait for call to finish
+      const { default: ora } = await import('ora');
+      const spinner = ora(lang === 'cn' ? '通话中...' : 'In call...').start();
+      const startTime = Date.now();
+      const maxMs = 10 * 60 * 1000;
+
+      while (Date.now() - startTime < maxMs) {
+        await new Promise(r => setTimeout(r, 2000));
+        try {
+          const status = await callApi.status(result.agent_id);
+          const elapsed = Math.floor((Date.now() - startTime) / 1000);
+          const mm = String(Math.floor(elapsed / 60));
+          const ss = String(elapsed % 60).padStart(2, '0');
+          spinner.text = `${lang === 'cn' ? '通话中' : 'In call'} (${mm}:${ss})`;
+          if (status.status === 'STOPPED' || status.status === 'FAILED') break;
+        } catch { /* ignore */ }
+      }
+
+      const totalSec = Math.floor((Date.now() - startTime) / 1000);
+      spinner.succeed(`${lang === 'cn' ? '通话结束' : 'Call ended'} (${Math.floor(totalSec / 60)}:${String(totalSec % 60).padStart(2, '0')})`);
       process.exit(0);
+    } catch (err) {
+      handleError(err);
+      process.exit(1);
     }
   }
+
+  // mode === 'voice': continue with existing voice chat flow below
 
   const client = createClient({
     appId: config.app_id!,
