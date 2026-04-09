@@ -1,12 +1,12 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { getCallAPI, getNumberAPI, getConfig, validateE164, pickOutboundNumber } from './_helpers.js';
+import { getCallAPI, getNumberAPI, getConfig, validateE164, pickOutboundNumber, buildChannelName, buildCallRequest } from './_helpers.js';
 import { generateRtcToken } from '../../utils/token.js';
 import { printSuccess, printError, printHint } from '../../ui/output.js';
 import { withSpinner } from '../../ui/spinner.js';
 import { handleError } from '../../utils/errors.js';
 import { track } from '../../utils/telemetry.js';
-import type { SendCallRequest } from '../../api/calls.js';
+
 
 async function runInlineImport(profileName?: string): Promise<void> {
   const { default: inquirer } = await import('inquirer');
@@ -128,7 +128,7 @@ export function registerPhoneSend(phone: Command): void {
         }
 
         // 5. Generate tokens
-        const channelName = `call-${Date.now().toString(36)}`;
+        const channelName = buildChannelName();
         const agentUid = 0;
         const sipUid = 1;
 
@@ -157,25 +157,17 @@ export function registerPhoneSend(phone: Command): void {
         }
 
         // 7. Build request
-        const request: SendCallRequest = {
-          name: `call-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          sip: {
-            to_number: toNumber,
-            from_number: fromNumber,
-            rtc_uid: String(sipUid),
-            rtc_token: sipToken,
-          },
-          properties: {
-            channel: channelName,
-            token: agentToken,
-            agent_rtc_uid: String(agentUid),
-            remote_rtc_uids: [String(sipUid)],
-            idle_timeout: parseInt(opts.maxDuration, 10) * 60 || 600,
-            llm,
-            tts: config.tts ?? {},
-            asr: config.asr ?? {},
-          },
-        };
+        const request = buildCallRequest({
+          fromNumber,
+          toNumber,
+          channelName,
+          agentToken,
+          sipToken,
+          llm,
+          tts: config.tts ?? {},
+          asr: config.asr ?? {},
+          idleTimeout: parseInt(opts.maxDuration, 10) * 60 || 600,
+        });
 
         if (opts.dryRun) {
           console.log(JSON.stringify(request, null, 2));

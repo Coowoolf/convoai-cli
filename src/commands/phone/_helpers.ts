@@ -5,6 +5,8 @@ import { createClient } from '../../api/client.js';
 import { CallAPI } from '../../api/calls.js';
 import { NumberAPI } from '../../api/numbers.js';
 import type { PhoneNumber } from '../../api/numbers.js';
+import type { SendCallRequest } from '../../api/calls.js';
+import type { VoiceProfile, TTSConfig } from '../../api/types.js';
 
 // ─── E.164 Validation ──────────────────────────────────────────────────────
 
@@ -110,4 +112,56 @@ export async function pickOutboundNumber(
   }]);
 
   return outbound.find(n => n.phone_number === selected)!;
+}
+
+// ─── Shared Call-Building Helpers ───────────────────────────────────────────
+
+/** Generate a unique channel name for phone calls. */
+export function buildChannelName(): string {
+  return `call-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/** Build a SendCallRequest from resolved parameters. */
+export function buildCallRequest(params: {
+  fromNumber: string;
+  toNumber: string;
+  channelName: string;
+  agentToken: string;
+  sipToken: string;
+  llm: Record<string, unknown>;
+  tts: Record<string, unknown>;
+  asr: Record<string, unknown>;
+  idleTimeout?: number;
+}): SendCallRequest {
+  return {
+    name: `call-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    sip: {
+      to_number: params.toNumber,
+      from_number: params.fromNumber,
+      rtc_uid: '1',
+      rtc_token: params.sipToken,
+    },
+    properties: {
+      channel: params.channelName,
+      token: params.agentToken,
+      agent_rtc_uid: '0',
+      remote_rtc_uids: ['1'],
+      idle_timeout: params.idleTimeout ?? 600,
+      llm: params.llm,
+      tts: params.tts,
+      asr: params.asr,
+    },
+  };
+}
+
+/** Build TTS config, optionally applying a voice profile override. */
+export function buildTTSConfig(
+  baseTTS: Partial<TTSConfig>,
+  voiceProfile?: VoiceProfile,
+): Partial<TTSConfig> {
+  const tts = { ...baseTTS, params: { ...baseTTS.params } };
+  if (voiceProfile?.voice_id) {
+    tts.params = { ...tts.params, voice: voiceProfile.voice_id };
+  }
+  return tts;
 }
