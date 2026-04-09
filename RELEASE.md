@@ -1,51 +1,62 @@
-# ConvoAI CLI v1.7.0 — Release Notes
+# ConvoAI CLI v1.8.0 — Release Notes
 
-> **Telephony: Phone Calls & Number Management**
+> **Phone Go: One-Command Phone Experience**
 
 ```bash
 npm install -g convoai
-convoai phone send
+convoai phone go
 ```
 
 ---
 
 ## Highlights
 
-### Phone Calls from Your Terminal
+### Phone Go �� Translate, Agent, or Free Call
+
+One command, three modes, live browser dashboard:
 
 ```bash
-# Interactive mode — prompts for everything
-convoai phone send
-
-# Flag mode — for scripts and automation
-convoai phone send --from +15551234567 --to +15559876543 --task "Ask about demo" --wait
-
-# Quick call from go
-convoai go --call
+convoai phone go
 ```
 
-`--wait` shows live call status:
 ```
-✓ Call initiated
-  ⠋ Ringing...
-  ⠋ In conversation (0:32)
-  ✓ Call ended (duration: 0:47)
+📞 ConvoAI Phone
+
+? Choose a mode:
+  ❯ 🌐 Translate Call — real-time translation, each side speaks their own language
+    🤖 Agent Outbound — AI completes a task autonomously
+    📱 Free Call — quick dial with optional AI assistance
 ```
 
-### Phone Number Management
+### Translate Call
+
+Each side speaks their own language. Real-time translation via ASR → LLM → TTS pipeline.
 
 ```bash
-convoai phone import          # Interactive SIP config (Twilio or BYO)
-convoai phone numbers         # List imported numbers
-convoai phone number <num>    # View details
-convoai phone update <num>    # Update config
-convoai phone remove <num>    # Delete
+convoai phone go --mode translate --lang zh:ja --to +81312345678
 ```
 
-### Quickstart + Go Integration
+16 languages supported: Chinese, English, Japanese, Korean, Spanish, French, German, Portuguese, Russian, Arabic, Hindi, Thai, Vietnamese, Italian, Turkish, Indonesian.
 
-- `convoai quickstart` Step 5 now offers: Voice Chat / Phone Call / OpenClaw
-- `convoai go --call` enters phone call mode with `--model/--tts/--asr` overrides
+### Agent Outbound
+
+Describe a task. The AI agent calls and completes it autonomously.
+
+```bash
+convoai phone go --mode agent --task "Book dinner for 2 at 7pm tomorrow" --task-lang ja --to +81312345678
+```
+
+### Live Dashboard
+
+Every call opens a browser dashboard at `localhost:3211` showing:
+- Call status and duration timer
+- Mode-specific UI (split-panel for translate, task display for agent)
+- Hang Up button
+- Real-time updates via Server-Sent Events
+
+### Voice Profile Interface
+
+Placeholder for future voice cloning integration. Config now accepts `voice_profile` with `provider` and `voice_id` fields. Implementation deferred — interface ready for provider integration.
 
 ---
 
@@ -53,33 +64,43 @@ convoai phone remove <num>    # Delete
 
 | Command | Description |
 |---------|-------------|
-| `phone send` | Make an outbound phone call |
-| `phone numbers` | List imported numbers |
-| `phone import` | Import a number with SIP config |
-| `phone number <num>` | Number details |
-| `phone update <num>` | Update number config |
-| `phone remove <num>` | Delete a number |
-| `phone hangup <id>` | End an active call |
-| `phone status <id>` | Check call status |
-| `phone history` | Recent calls |
-| `go --call` | Phone call mode in go |
+| `phone go` | One-command phone experience (translate / agent / free) |
+| `phone go --mode translate` | Real-time translation call |
+| `phone go --mode agent` | AI agent outbound call |
+| `phone go --mode free` | Quick dial with AI |
+| `phone go --no-dashboard` | CLI-only, no browser |
+| `phone go --dry-run` | Preview API request |
 
-## Deprecations
+## All Phone Go Flags
 
-| Old | New | Status |
-|-----|-----|--------|
-| `call initiate` | `phone send` | Works with warning + flag mapping |
-| `call hangup` | `phone hangup` | Works with warning |
-| `call status` | `phone status` | Works with warning |
+| Flag | Description |
+|------|-------------|
+| `--mode <mode>` | Skip mode selection (translate\|agent\|free) |
+| `--to <number>` | Target phone number (E.164) |
+| `--from <number>` | Caller ID (E.164) |
+| `--lang <pair>` | Language pair, e.g. "zh:ja" (translate mode) |
+| `--task <prompt>` | Task description (agent/free mode) |
+| `--task-lang <lang>` | Language for agent to speak |
+| `--no-dashboard` | Skip browser dashboard |
+| `--profile <name>` | Config profile |
+| `--json` | JSON output, no dashboard |
+| `--dry-run` | Show request payload without calling |
+
+## Internal Improvements
+
+- Extracted shared call-building helpers (`buildChannelName`, `buildCallRequest`, `buildTTSConfig`) from `phone send`
+- Dashboard server binds to `127.0.0.1` only (secure by default)
+- Mode validation rejects invalid `--mode` values
+- Graceful SIGINT cleanup without `process.exit`
 
 ## Stats
 
 | Metric | Value |
 |--------|-------|
-| New files | 12 |
-| Source code | ~15,000 lines |
-| Tests | 519 / 519 |
-| npm | [convoai@1.7.0](https://www.npmjs.com/package/convoai) |
+| New files | 6 source + 4 test |
+| Source code | ~16,000 lines |
+| Tests | 542 / 542 |
+| npm | [convoai@1.8.0](https://www.npmjs.com/package/convoai) |
 
 ---
 

@@ -97,24 +97,30 @@ my-app/
 
 ---
 
-## Phone Calls (v1.7.0)
+## Phone Go (v1.8.0)
 
-Make outbound phone calls with AI agents:
+One-command phone experience — translate calls, agent outbound, or free calls with a live dashboard:
 
 ```bash
-# Interactive — prompts for everything
-convoai phone send
+# Interactive — choose mode, fill in details
+convoai phone go
 
-# Or with flags
-convoai phone send --from +15551234567 --to +15559876543 --task "Ask about demo" --wait
+# Translate call — each side speaks their own language
+convoai phone go --mode translate --lang zh:ja --to +81312345678
 
-# Quick call from go
-convoai go --call
+# Agent outbound — AI completes a task autonomously
+convoai phone go --mode agent --task "Book dinner for 2 at 7pm" --task-lang ja --to +81312345678
+
+# Free call — quick dial with optional AI assistance
+convoai phone go --mode free --to +15559876543
 ```
 
-**Number management:**
+Live browser dashboard shows call status, translation text, and a hang-up button.
+
+**Phone calls & number management:**
 
 ```bash
+convoai phone send            # Make an outbound call (flag mode)
 convoai phone import          # Import a number (Twilio or BYO SIP)
 convoai phone numbers         # List your numbers
 convoai phone remove <num>    # Remove a number
@@ -216,8 +222,9 @@ Commands are organized into scenario groups:
 |---|---|
 | **Start** | `go`, `quickstart` |
 | **Agent** | `agent start`, `agent stop`, `agent status`, `agent list`, `agent update`, `agent speak`, `agent interrupt`, `agent history`, `agent turns`, `agent join` |
+| **Phone** | `phone go`, `phone send`, `phone numbers`, `phone import`, `phone number`, `phone update`, `phone remove`, `phone hangup`, `phone status`, `phone history` |
 | **Config** | `config init`, `config set`, `config get`, `config show`, `config path`, `auth login`, `auth logout`, `auth status` |
-| **More** | `preset list`, `preset use`, `template save/list/show/delete/use`, `call initiate/hangup/status`, `token`, `completion` |
+| **More** | `preset list`, `preset use`, `template save/list/show/delete/use`, `token`, `completion` |
 
 ---
 
