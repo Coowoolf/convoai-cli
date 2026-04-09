@@ -81,6 +81,24 @@ describe('validateConfig', () => {
   });
 });
 
+describe('voice_profile config', () => {
+  it('accepts config with voice_profile', () => {
+    const result = validateConfig({
+      app_id: 'test',
+      voice_profile: {
+        provider: 'elevenlabs',
+        voice_id: 'abc123',
+      },
+    });
+    expect(result.voice_profile).toEqual({ provider: 'elevenlabs', voice_id: 'abc123' });
+  });
+
+  it('accepts config without voice_profile', () => {
+    const result = validateConfig({ app_id: 'test' });
+    expect(result.voice_profile).toBeUndefined();
+  });
+});
+
 describe('ProfileConfigSchema', () => {
   it('accepts valid profile with all optional fields', () => {
     const profile = {

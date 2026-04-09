@@ -275,6 +275,14 @@ export interface ApiErrorResponse {
   reason: string;
 }
 
+// ─── Voice Profile (deferred — interface only) ─────────────────────────────
+
+export interface VoiceProfile {
+  id?: string;
+  provider?: string;
+  voice_id?: string;
+}
+
 // ─── Config Types ───────────────────────────────────────────────────────────
 
 export interface ConvoAIConfig {
@@ -286,6 +294,7 @@ export interface ConvoAIConfig {
   region?: 'global' | 'cn';
   default_profile?: string;
   profiles?: Record<string, ProfileConfig>;
+  voice_profile?: VoiceProfile;
 }
 
 export interface ProfileConfig {

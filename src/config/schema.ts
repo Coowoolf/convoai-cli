@@ -29,6 +29,12 @@ const ASRPartialSchema = z.object({
   params: z.record(z.unknown()).optional(),
 }).passthrough().optional();
 
+const VoiceProfileSchema = z.object({
+  id: z.string().optional(),
+  provider: z.string().optional(),
+  voice_id: z.string().optional(),
+}).optional();
+
 // ─── Profile Config ─────────────────────────────────────────────────────────
 
 export const ProfileConfigSchema = z.object({
@@ -54,6 +60,7 @@ export const ConvoAIConfigSchema = z.object({
   region: z.enum(['global', 'cn']).optional(),
   default_profile: z.string().optional(),
   profiles: z.record(ProfileConfigSchema).optional(),
+  voice_profile: VoiceProfileSchema,
 });
 
 // ─── Validation Helper ──────────────────────────────────────────────────────
