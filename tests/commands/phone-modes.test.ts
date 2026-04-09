@@ -33,3 +33,38 @@ describe('free mode: buildFreeCallConfig', () => {
     expect(config.llm.system_messages[0].content).toContain('voice assistant');
   });
 });
+
+describe('translate mode: buildTranslateCallConfig', () => {
+  it('builds config with language pair', async () => {
+    const { buildTranslateCallConfig } = await import('../../src/commands/phone/_modes/translate.js');
+    const config = buildTranslateCallConfig({
+      toNumber: '+81312345678',
+      fromNumber: '+15551234567',
+      sourceLang: 'zh',
+      targetLang: 'ja',
+      llm: { vendor: 'openai' },
+      tts: { vendor: 'microsoft' },
+      asr: { vendor: 'deepgram' },
+    });
+
+    expect(config.mode).toBe('translate');
+    expect(config.llm.system_messages[0].content).toContain('zh');
+    expect(config.llm.system_messages[0].content).toContain('ja');
+    expect(config.label).toContain('zh → ja');
+  });
+});
+
+describe('parseLanguagePair', () => {
+  it('parses "zh:ja" into source and target', async () => {
+    const { parseLanguagePair } = await import('../../src/commands/phone/_modes/translate.js');
+    const { source, target } = parseLanguagePair('zh:ja');
+    expect(source).toBe('zh');
+    expect(target).toBe('ja');
+  });
+
+  it('throws on invalid format', async () => {
+    const { parseLanguagePair } = await import('../../src/commands/phone/_modes/translate.js');
+    expect(() => parseLanguagePair('zh')).toThrow();
+    expect(() => parseLanguagePair('')).toThrow();
+  });
+});
