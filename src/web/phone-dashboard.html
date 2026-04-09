@@ -121,6 +121,7 @@
       });
 
       eventSource.onerror = () => {
+        eventSource.close();
         setTimeout(connect, 3000);
       };
     }

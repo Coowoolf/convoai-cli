@@ -49,17 +49,10 @@ export class PhoneDashboard {
     const html = this.loadHTML();
 
     this.server = createServer((req, res) => this.handleRequest(req, res, html));
-    await new Promise<void>((resolve) => this.server!.listen(this.port, resolve));
+    await new Promise<void>((resolve) => this.server!.listen(this.port, '127.0.0.1', resolve));
 
     // Start polling call status
     this.pollTimer = setInterval(() => this.pollStatus(), 2000);
-    // Send initial state
-    this.broadcast('init', {
-      mode: this.opts.mode,
-      label: this.opts.label,
-      agentId: this.opts.agentId,
-      config: this.opts.config ?? {},
-    });
 
     return this.port;
   }

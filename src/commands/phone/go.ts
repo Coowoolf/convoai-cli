@@ -88,6 +88,9 @@ async function goAction(opts: {
   console.log(chalk.bold('\n📞 ConvoAI Phone\n'));
 
   // 1. Select mode
+  if (opts.mode && !['translate', 'agent', 'free'].includes(opts.mode)) {
+    throw new Error(`Invalid mode "${opts.mode}". Use: translate, agent, or free`);
+  }
   const mode: Mode = (opts.mode as Mode) || (process.stdin.isTTY ? await selectMode() : (() => { throw new Error('--mode is required in non-TTY'); })());
 
   // 2. Resolve from number
@@ -206,14 +209,13 @@ async function goAction(opts: {
 
   const cleanup = async () => {
     spinner.stop();
+    running = false;
     try {
       await callApi.hangup(result.agent_id);
       printSuccess('Call ended.');
     } catch {
       printHint(`Call may still be active: convoai phone hangup ${result.agent_id}`);
     }
-    if (dashboard) await dashboard.stop();
-    process.exit(0);
   };
 
   process.on('SIGINT', cleanup);

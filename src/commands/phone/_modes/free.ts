@@ -45,7 +45,7 @@ export async function collectFreeParams(opts: {
   to?: string;
   from?: string;
   task?: string;
-}): Promise<{ toNumber: string; fromNumber: string; task?: string }> {
+}): Promise<{ toNumber: string; task?: string }> {
   const { default: inquirer } = await import('inquirer');
   const { validateE164 } = await import('../_helpers.js');
 
@@ -71,5 +71,5 @@ export async function collectFreeParams(opts: {
     task = ans.task || undefined;
   }
 
-  return { toNumber, fromNumber: '', task }; // fromNumber resolved by caller
+  return { toNumber, task }; // fromNumber resolved by caller
 }
