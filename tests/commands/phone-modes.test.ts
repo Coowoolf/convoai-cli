@@ -68,3 +68,38 @@ describe('parseLanguagePair', () => {
     expect(() => parseLanguagePair('')).toThrow();
   });
 });
+
+describe('agent mode: buildAgentCallConfig', () => {
+  it('builds config with task and language', async () => {
+    const { buildAgentCallConfig } = await import('../../src/commands/phone/_modes/agent.js');
+    const config = buildAgentCallConfig({
+      toNumber: '+81312345678',
+      fromNumber: '+15551234567',
+      task: 'Book a dinner reservation for 2 at 7pm tomorrow',
+      taskLang: 'ja',
+      llm: { vendor: 'openai' },
+      tts: { vendor: 'microsoft' },
+      asr: { vendor: 'deepgram' },
+    });
+
+    expect(config.mode).toBe('agent');
+    expect(config.llm.system_messages[0].content).toContain('Book a dinner reservation');
+    expect(config.llm.system_messages[0].content).toContain('ja');
+    expect(config.label).toContain('Agent');
+  });
+
+  it('sets longer idle timeout for agent tasks', async () => {
+    const { buildAgentCallConfig } = await import('../../src/commands/phone/_modes/agent.js');
+    const config = buildAgentCallConfig({
+      toNumber: '+81312345678',
+      fromNumber: '+15551234567',
+      task: 'Negotiate contract terms and get a final price quote',
+      taskLang: 'en',
+      llm: { vendor: 'openai' },
+      tts: { vendor: 'microsoft' },
+      asr: { vendor: 'deepgram' },
+    });
+
+    expect(config.idleTimeout).toBeGreaterThanOrEqual(900);
+  });
+});
