@@ -51,6 +51,7 @@ import { registerQuickstart } from './commands/quickstart.js';
 import { registerOpenClaw } from './commands/openclaw.js';
 
 // ─── Phone Commands ──────────────────────────────────────────────────────
+import { registerPhoneGo } from './commands/phone/go.js';
 import { registerPhoneSend } from './commands/phone/send.js';
 import { registerPhoneNumbers } from './commands/phone/numbers.js';
 import { registerPhoneImport } from './commands/phone/import.js';
@@ -303,6 +304,7 @@ export function run(): void {
     .command('phone')
     .description('Phone calls and number management');
 
+  registerPhoneGo(phone);
   registerPhoneSend(phone);
   registerPhoneNumbers(phone);
   registerPhoneImport(phone);

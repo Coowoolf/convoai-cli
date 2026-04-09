@@ -69,6 +69,19 @@ describe('convoai phone', () => {
     const output = cli('call initiate');
     expect(output).toContain('deprecated');
   });
+
+  it('phone go shows in phone help', () => {
+    const output = cli('phone --help');
+    expect(output).toContain('go');
+  });
+
+  it('phone go shows help with --help', () => {
+    const output = cli('phone go --help');
+    expect(output).toContain('--mode');
+    expect(output).toContain('--lang');
+    expect(output).toContain('--task');
+    expect(output).toContain('--no-dashboard');
+  });
 });
 
 describe('E.164 validation', () => {
