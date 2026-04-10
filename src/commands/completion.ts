@@ -7,7 +7,7 @@ import { handleError } from '../utils/errors.js';
 
 // ─── Completion Data ──────────────────────────────────────────────────────
 
-const TOP_LEVEL_COMMANDS = ['go', 'init', 'dev', 'quickstart', 'openclaw', 'phone', 'auth', 'agent', 'call', 'config', 'preset', 'template', 'token', 'completion'];
+const TOP_LEVEL_COMMANDS = ['go', 'init', 'dev', 'quickstart', 'openclaw', 'phone', 'auth', 'agent', 'call', 'config', 'preset', 'template', 'token', 'completion', 'update', 'clear'];
 
 const SUBCOMMANDS: Record<string, string[]> = {
   phone: ['go', 'send', 'numbers', 'import', 'number', 'update', 'remove', 'hangup', 'status', 'history'],

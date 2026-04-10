@@ -173,6 +173,12 @@ function customHelp(): string {
   lines.push(`  ${chalk.cyan('config init')}       ${chalk.dim('Re-run setup wizard')}`);
   lines.push('');
 
+  // Group: Maintenance
+  lines.push(chalk.bold('Maintenance:'));
+  lines.push(`  ${chalk.cyan('update')}            ${chalk.dim('Check and install the latest version')}`);
+  lines.push(`  ${chalk.cyan('clear')}             ${chalk.dim('Remove all local configuration')}`);
+  lines.push('');
+
   // Group: More
   lines.push(chalk.bold('More:'));
   lines.push(`  ${chalk.cyan('agent speak')}       ${chalk.dim('Make agent say something')}`);
@@ -186,7 +192,6 @@ function customHelp(): string {
   lines.push(`  ${chalk.cyan('phone remove')}      ${chalk.dim('Remove a number')}`);
   lines.push(`  ${chalk.cyan('call')} *            ${chalk.dim('Telephony (deprecated, use phone)')}`);
   lines.push(`  ${chalk.cyan('completion')}        ${chalk.dim('Shell completions')}`);
-  lines.push(`  ${chalk.cyan('clear')}             ${chalk.dim('Remove all local configuration')}`);
   lines.push('');
 
   // Examples
