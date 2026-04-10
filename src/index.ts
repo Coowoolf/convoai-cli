@@ -77,6 +77,9 @@ import { registerCompletion } from './commands/completion.js';
 // ─── Update ───────────────────────────────────────────────────────────────────
 import { registerUpdate } from './commands/update.js';
 
+// ─── Clear ────────────────────────────────────────────────────────────────────
+import { registerClear } from './commands/clear.js';
+
 import { loadConfig } from './config/manager.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -183,6 +186,7 @@ function customHelp(): string {
   lines.push(`  ${chalk.cyan('phone remove')}      ${chalk.dim('Remove a number')}`);
   lines.push(`  ${chalk.cyan('call')} *            ${chalk.dim('Telephony (deprecated, use phone)')}`);
   lines.push(`  ${chalk.cyan('completion')}        ${chalk.dim('Shell completions')}`);
+  lines.push(`  ${chalk.cyan('clear')}             ${chalk.dim('Remove all local configuration')}`);
   lines.push('');
 
   // Examples
@@ -326,6 +330,9 @@ export function run(): void {
 
   // ── update ─────────────────────────────────────────────────────────────
   registerUpdate(program);
+
+  // ── clear ──────────────────────────────────────────────────────────────
+  registerClear(program);
 
   // ── Global error handling ───────────────────────────────────────────────
   program.exitOverride();
