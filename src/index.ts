@@ -74,6 +74,9 @@ import { registerDev } from './commands/dev.js';
 // ─── Completion ───────────────────────────────────────────────────────────────
 import { registerCompletion } from './commands/completion.js';
 
+// ─── Update ───────────────────────────────────────────────────────────────────
+import { registerUpdate } from './commands/update.js';
+
 import { loadConfig } from './config/manager.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -320,6 +323,9 @@ export function run(): void {
 
   // ── completion ──────────────────────────────────────────────────────────
   registerCompletion(program);
+
+  // ── update ─────────────────────────────────────────────────────────────
+  registerUpdate(program);
 
   // ── Global error handling ───────────────────────────────────────────────
   program.exitOverride();
