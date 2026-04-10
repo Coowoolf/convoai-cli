@@ -96,11 +96,11 @@ function mascot(ver: string): void {
   const W = chalk.hex('#c8c8ff');
   console.log('');
   console.log(`  ${P('   ▗▄▄▄▄▄▄▄▄▄▄▄▄▄▖')}`);
-  console.log(`  ${P('   ▐')}${B('              ')}${P('▌')}`);
-  console.log(`  ${P('   ▐')}${B('  ')}${W('██')}${B('    ')}${W('██')}${B('   ')}${P('▌')}    ${chalk.bold.hex('#786af4')('ConvoAI CLI')} v${ver}`);
-  console.log(`  ${P('   ▐')}${B('    ')}${W('▀▀▀▀')}${B('    ')}${P('▌')}    Voice AI in 2 minutes`);
-  console.log(`  ${P('   ▐')}${B('              ')}${P('▌')}    ${chalk.dim('Powered by Agora')}`);
-  console.log(`  ${P('   ▝▀▀▀▀▀▀▀█▀▀▀▀▘')}`);
+  console.log(`  ${P('   ▐')}${B('             ')}${P('▌')}`);
+  console.log(`  ${P('   ▐')}${B('  ')}${W('██')}${B('     ')}${W('██')}${B('  ')}${P('▌')}    ${chalk.bold.hex('#786af4')('ConvoAI CLI')} v${ver}`);
+  console.log(`  ${P('   ▐')}${B('    ')}${W('▀▀▀▀▀')}${B('    ')}${P('▌')}    Voice AI in 2 minutes`);
+  console.log(`  ${P('   ▐')}${B('             ')}${P('▌')}    ${chalk.dim('Powered by Agora')}`);
+  console.log(`  ${P('   ▝▀▀▀▀▀▀▀█▀▀▀▀▀▘')}`);
   console.log(`  ${P('            ▀▚')}`);
   console.log('');
 }
@@ -154,10 +154,16 @@ async function quickstartAction(): Promise<void> {
 
   const { default: inquirer } = await import('inquirer');
 
-  // Read version for mascot
+  // Read version for mascot (walk up to find convoai's package.json)
   let ver = 'unknown';
-  try { ver = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')).version ?? ver; } catch { /* */ }
-  try { ver = JSON.parse(readFileSync(join(__dirname, '..', '..', 'package.json'), 'utf-8')).version ?? ver; } catch { /* */ }
+  let verDir = __dirname;
+  for (let i = 0; i < 5; i++) {
+    try {
+      const pkg = JSON.parse(readFileSync(join(verDir, 'package.json'), 'utf-8'));
+      if (pkg.name === 'convoai') { ver = pkg.version ?? ver; break; }
+    } catch { /* keep searching */ }
+    verDir = dirname(verDir);
+  }
 
   // Mascot first, then welcome box
   mascot(ver);
