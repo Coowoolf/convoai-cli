@@ -21,7 +21,7 @@ export function decrypt(hex: string): string {
  * Get a built-in API key by provider name.
  * Returns null if embedded keys file doesn't exist (dev environment).
  */
-export function getEmbeddedKey(provider: 'qwen' | 'minimax'): string | null {
+export function getEmbeddedKey(provider: 'qwen' | 'minimax' | 'minimax_group_id'): string | null {
   try {
     const { EMBEDDED_KEYS } = require('./embedded.js');
     const hex = EMBEDDED_KEYS?.[provider];
@@ -60,6 +60,12 @@ export function resolveEmbeddedKeys(config: {
       throw new Error(
         'Built-in MiniMax key not available. Run "convoai quickstart" to configure your own API key.',
       );
+    }
+  }
+  if (ttsParams?.group_id === '__embedded__') {
+    const groupId = getEmbeddedKey('minimax_group_id');
+    if (groupId) {
+      ttsParams.group_id = groupId;
     }
   }
 }

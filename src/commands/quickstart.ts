@@ -678,6 +678,11 @@ async function quickstartAction(): Promise<void> {
 
     const ttsParams: Record<string, unknown> = { key: ttsKey };
 
+    // Built-in MiniMax: set group_id placeholder for runtime resolution
+    if (selectedTts.builtin && selectedTts.requiresGroupId) {
+      ttsParams.group_id = '__embedded__';
+    }
+
     // Microsoft-specific: region + voice name
     if (ttsVendor === 'microsoft') {
       const msAnswers = await inquirer.prompt([
