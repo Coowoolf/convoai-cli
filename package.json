@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "npm run build"
+    "embed-keys": "tsx scripts/embed-keys.ts",
+    "prepublishOnly": "npm run embed-keys && npm run build"
   },
   "keywords": [
     "agora",

@@ -8,3 +8,6 @@ coverage/
 .convoai.json
 *.pem
 *.key
+
+# Embedded API keys (generated at publish time)
+src/keys/embedded.ts
