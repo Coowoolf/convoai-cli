@@ -136,7 +136,12 @@ function getOrderedLlmChoices(lang: 'cn' | 'global'): Array<{ name: string; valu
     .map((value) => {
       const provider = LLM_PROVIDERS.find((p) => p.value === value);
       if (!provider) return null;
-      const name = lang === 'cn' ? (LLM_CN_NAMES[value] ?? provider.name) : provider.name;
+      let name = lang === 'cn' ? (LLM_CN_NAMES[value] ?? provider.name) : provider.name;
+      if (provider.builtin) {
+        name += lang === 'cn'
+          ? chalk.green(' (内置，无需 API Key)')
+          : chalk.green(' (built-in, no API key needed)');
+      }
       return { name, value: provider.value };
     })
     .filter((c): c is { name: string; value: string } => c !== null);
@@ -481,16 +486,23 @@ async function quickstartAction(): Promise<void> {
 
     const selectedLlm = LLM_PROVIDERS.find((p) => p.value === llmProvider)!;
 
-    // API Key — allow skip (empty = skip this step)
-    const skipHint = platform === 'cn' ? '留空跳过此步骤' : 'Leave empty to skip';
-    const { apiKey: llmApiKey } = await inquirer.prompt([
-      {
-        type: 'password',
-        name: 'apiKey',
-        message: `${str.apiKey} ${chalk.dim(`(${skipHint})`)}:`,
-        mask: '*',
-      },
-    ]);
+    let llmApiKey: string;
+    if (selectedLlm.builtin) {
+      llmApiKey = '__embedded__';
+      printSuccess(lang === 'cn' ? '使用内置 API Key' : 'Using built-in API key');
+    } else {
+      // API Key — allow skip (empty = skip this step)
+      const skipHint = platform === 'cn' ? '留空跳过此步骤' : 'Leave empty to skip';
+      const { apiKey } = await inquirer.prompt([
+        {
+          type: 'password',
+          name: 'apiKey',
+          message: `${str.apiKey} ${chalk.dim(`(${skipHint})`)}:`,
+          mask: '*',
+        },
+      ]);
+      llmApiKey = apiKey;
+    }
 
     if (!llmApiKey) {
       printSuccess(lang === 'cn'
@@ -626,7 +638,13 @@ async function quickstartAction(): Promise<void> {
     // Build TTS provider choices
     const ttsChoices = TTS_PROVIDERS.map((p) => {
       let label = p.name;
-      if (p.beta) label += chalk.dim(' (Beta)');
+      if (p.builtin) {
+        label += lang === 'cn'
+          ? chalk.green(' (内置，无需 API Key)')
+          : chalk.green(' (built-in, no API key needed)');
+      } else if (p.beta) {
+        label += chalk.dim(' (Beta)');
+      }
       return { name: label, value: p.vendor };
     });
 
@@ -641,16 +659,22 @@ async function quickstartAction(): Promise<void> {
 
     const selectedTts = TTS_PROVIDERS.find((p) => p.vendor === ttsVendor)!;
 
-    // API Key (always required)
-    const { key: ttsKey } = await inquirer.prompt([
-      {
-        type: 'password',
-        name: 'key',
-        message: str.ttsApiKey + ':',
-        mask: '*',
-        validate: (v: string) => v.trim().length > 0 || 'Required',
-      },
-    ]);
+    let ttsKey: string;
+    if (selectedTts.builtin) {
+      ttsKey = '__embedded__';
+      printSuccess(lang === 'cn' ? '使用内置 API Key' : 'Using built-in API key');
+    } else {
+      const { key } = await inquirer.prompt([
+        {
+          type: 'password',
+          name: 'key',
+          message: str.ttsApiKey + ':',
+          mask: '*',
+          validate: (v: string) => v.trim().length > 0 || 'Required',
+        },
+      ]);
+      ttsKey = key;
+    }
 
     const ttsParams: Record<string, unknown> = { key: ttsKey };
 
@@ -677,7 +701,7 @@ async function quickstartAction(): Promise<void> {
     }
 
     // MiniMax-specific: group_id
-    if (selectedTts.requiresGroupId) {
+    if (selectedTts.requiresGroupId && !selectedTts.builtin) {
       const { groupId } = await inquirer.prompt([
         {
           type: 'input',
