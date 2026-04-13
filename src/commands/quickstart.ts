@@ -820,6 +820,10 @@ async function quickstartAction(): Promise<void> {
       }
 
       const llm: Record<string, unknown> = { ...(profile.llm ?? {}) };
+
+      const { resolveEmbeddedKeys: resolveQsPhone } = await import('../keys/resolve.js');
+      resolveQsPhone({ llm, tts: profile.tts as Record<string, unknown> });
+
       const request = {
         name: `qs-call-${Date.now()}`,
         sip: { to_number: validateE164(to), from_number: picked.phone_number, rtc_uid: '1', rtc_token: sipToken },
@@ -902,6 +906,9 @@ async function quickstartAction(): Promise<void> {
   if (greeting) {
     llmWithGreeting.greeting_message = greeting;
   }
+
+  const { resolveEmbeddedKeys } = await import('../keys/resolve.js');
+  resolveEmbeddedKeys({ llm: llmWithGreeting, tts: profile.tts as Record<string, unknown> });
 
   const request: StartAgentRequest = {
     name: `qs-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,

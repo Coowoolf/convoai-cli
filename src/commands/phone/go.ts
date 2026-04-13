@@ -148,6 +148,9 @@ async function goAction(opts: {
   }
 
   // 5. Build API request
+  const { resolveEmbeddedKeys } = await import('../../keys/resolve.js');
+  resolveEmbeddedKeys({ llm: callConfig.llm as Record<string, unknown>, tts: callConfig.tts as Record<string, unknown> });
+
   const request = buildCallRequest({
     fromNumber: callConfig.fromNumber,
     toNumber: callConfig.toNumber,

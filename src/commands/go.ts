@@ -235,6 +235,9 @@ async function goAction(opts: {
     const asr: Record<string, unknown> = { ...(profile.asr ?? {}) };
     if (opts.asr) asr.vendor = opts.asr;
 
+    const { resolveEmbeddedKeys } = await import('../keys/resolve.js');
+    resolveEmbeddedKeys({ llm, tts });
+
     const request = {
       name: `call-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       sip: { to_number: toNumber, from_number: picked.phone_number, rtc_uid: '1', rtc_token: sipToken },
@@ -379,6 +382,9 @@ async function goAction(opts: {
   const asrForRequest = effectiveAsr?.vendor
     ? effectiveAsr
     : { vendor: 'ares', language: 'zh-CN' };
+
+  const { resolveEmbeddedKeys } = await import('../keys/resolve.js');
+  resolveEmbeddedKeys({ llm: llmForRequest, tts: effectiveTts as Record<string, unknown> });
 
   const request: StartAgentRequest = {
     name: `go-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,

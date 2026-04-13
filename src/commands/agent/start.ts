@@ -252,6 +252,12 @@ export function registerAgentStart(program: Command): void {
           return;
         }
 
+        const { resolveEmbeddedKeys } = await import('../../keys/resolve.js');
+        resolveEmbeddedKeys({
+          llm: request.properties?.llm as Record<string, unknown>,
+          tts: request.properties?.tts as Record<string, unknown>,
+        });
+
         const api = getAgentAPI(opts.profile);
         const result = await withSpinner('Starting agent...', () => api.start(request));
 

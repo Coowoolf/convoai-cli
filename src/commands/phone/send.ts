@@ -157,6 +157,9 @@ export function registerPhoneSend(phone: Command): void {
         }
 
         // 7. Build request
+        const { resolveEmbeddedKeys } = await import('../../keys/resolve.js');
+        resolveEmbeddedKeys({ llm, tts: config.tts as Record<string, unknown> });
+
         const request = buildCallRequest({
           fromNumber,
           toNumber,
