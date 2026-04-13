@@ -14,6 +14,7 @@ export interface LLMProvider {
   headers?: string;
   urlHasKey?: boolean;
   note?: string;
+  builtin?: boolean;
 }
 
 export const LLM_PROVIDERS: LLMProvider[] = [
@@ -24,6 +25,7 @@ export const LLM_PROVIDERS: LLMProvider[] = [
     defaultModel: 'qwen-plus',
     models: ['qwen-plus', 'qwen-turbo', 'qwen-max', 'qwen-long'],
     note: 'China-optimized, no proxy needed',
+    builtin: true,
   },
   {
     name: 'DeepSeek',
@@ -119,6 +121,7 @@ export interface TTSProvider {
   defaultParams?: Record<string, unknown>;
   beta?: boolean;
   note?: string;
+  builtin?: boolean;
 }
 
 export const TTS_PROVIDERS: TTSProvider[] = [
@@ -148,6 +151,7 @@ export const TTS_PROVIDERS: TTSProvider[] = [
     requiresKey: true,
     requiresGroupId: true,
     note: 'Requires API Key + Group ID from minimax.chat',
+    builtin: true,
     defaultParams: {
       model: 'speech-02-turbo',
       voice_setting: { voice_id: 'English_captivating_female1' },
@@ -231,6 +235,7 @@ export interface ASRProvider {
   defaultParams?: Record<string, unknown>;
   beta?: boolean;
   note?: string;
+  builtin?: boolean;
 }
 
 export const ASR_PROVIDERS: ASRProvider[] = [
@@ -239,6 +244,7 @@ export const ASR_PROVIDERS: ASRProvider[] = [
     vendor: 'ares',
     requiresKey: false,
     note: 'Agora built-in, no extra API key needed',
+    builtin: true,
   },
   {
     name: 'Microsoft Azure',

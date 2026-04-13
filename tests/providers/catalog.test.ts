@@ -131,6 +131,32 @@ describe('ASR_PROVIDERS', () => {
   });
 });
 
+describe('provider catalog built-in flags', () => {
+  it('Qwen LLM has builtin: true', () => {
+    const qwen = LLM_PROVIDERS.find(p => p.value === 'dashscope');
+    expect(qwen).toBeDefined();
+    expect(qwen!.builtin).toBe(true);
+  });
+
+  it('MiniMax TTS has builtin: true', () => {
+    const minimax = TTS_PROVIDERS.find(p => p.vendor === 'minimax');
+    expect(minimax).toBeDefined();
+    expect(minimax!.builtin).toBe(true);
+  });
+
+  it('ARES ASR has builtin: true', () => {
+    const ares = ASR_PROVIDERS.find(p => p.vendor === 'ares');
+    expect(ares).toBeDefined();
+    expect(ares!.builtin).toBe(true);
+  });
+
+  it('OpenAI LLM does NOT have builtin: true', () => {
+    const openai = LLM_PROVIDERS.find(p => p.value === 'openai');
+    expect(openai).toBeDefined();
+    expect(openai!.builtin).toBeUndefined();
+  });
+});
+
 describe('ASR_LANGUAGES', () => {
   it('has 24 languages', () => {
     expect(ASR_LANGUAGES).toHaveLength(24);
