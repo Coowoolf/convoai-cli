@@ -44,8 +44,8 @@ interface Credentials {
 }
 
 async function promptCredentials(opts: LoginOptions): Promise<Credentials> {
-  const { default: inquirer } = await import('inquirer');
-  const answers = await inquirer.prompt<Credentials>([
+  const { safePrompt } = await import('../../ui/prompt.js');
+  const answers = await safePrompt<Credentials>([
     {
       type: 'input',
       name: 'appId',

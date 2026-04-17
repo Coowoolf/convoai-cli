@@ -189,7 +189,7 @@ async function goAction(opts: {
     const { withSpinner } = await import('../ui/spinner.js');
     const numberApi = getNumberAPI(opts.profile);
     const callApi = getCallAPI(opts.profile);
-    const { default: inquirer } = await import('inquirer');
+    const { safePrompt } = await import('../ui/prompt.js');
 
     // Get numbers
     let numbers = await numberApi.list();
@@ -200,13 +200,13 @@ async function goAction(opts: {
     }
 
     const picked = await pickOutboundNumber(numbers);
-    const { to } = await inquirer.prompt([{
+    const { to } = await safePrompt([{
       type: 'input', name: 'to', message: lang === 'cn' ? '拨打号码 (E.164):' : 'To number (E.164):',
       validate: (v: string) => /^\+[1-9]\d{1,14}$/.test(v.trim()) || 'Invalid E.164',
     }]);
     const toNumber = validateE164(to);
 
-    const { task } = await inquirer.prompt([{
+    const { task } = await safePrompt([{
       type: 'input', name: 'task', message: lang === 'cn' ? '任务/提示:' : 'Task/prompt:',
       default: lang === 'cn' ? '你是一个友好的AI语音助手。' : 'You are a friendly AI voice assistant.',
     }]);
@@ -602,7 +602,7 @@ async function runSetupFlow(
   lang: 'cn' | 'global',
   str: ReturnType<typeof getStrings>,
 ): Promise<void> {
-  const { default: inquirer } = await import('inquirer');
+  const { safePrompt } = await import('../ui/prompt.js');
 
   if (!configObj.profiles) configObj.profiles = {};
   const profile = configObj.profiles[profileName] ?? {};
@@ -621,7 +621,7 @@ async function runSetupFlow(
     return { name: label, value: p.vendor };
   });
 
-  const { vendor: asrVendor } = await inquirer.prompt([
+  const { vendor: asrVendor } = await safePrompt([
     {
       type: 'list',
       name: 'vendor',
@@ -636,7 +636,7 @@ async function runSetupFlow(
   // API Key (not needed for ARES)
   let asrKey: string | undefined;
   if (asrVendor !== 'ares') {
-    const { key } = await inquirer.prompt([
+    const { key } = await safePrompt([
       {
         type: 'password',
         name: 'key',
@@ -651,7 +651,7 @@ async function runSetupFlow(
   // Microsoft ASR region
   let asrRegion: string | undefined;
   if (selectedAsr.requiresRegion) {
-    const { region } = await inquirer.prompt([
+    const { region } = await safePrompt([
       {
         type: 'input',
         name: 'region',
@@ -667,7 +667,7 @@ async function runSetupFlow(
   const defaultLang = lang === 'cn' ? 'zh-CN' : 'en-US';
   const langChoices = ASR_LANGUAGES.map((l) => ({ name: l.name, value: l.value }));
 
-  const { language: asrLanguage } = await inquirer.prompt([
+  const { language: asrLanguage } = await safePrompt([
     {
       type: 'list',
       name: 'language',
@@ -704,7 +704,7 @@ async function runSetupFlow(
 
   const llmChoices = getOrderedLlmChoices(lang);
 
-  const { provider: llmProvider } = await inquirer.prompt([
+  const { provider: llmProvider } = await safePrompt([
     {
       type: 'list',
       name: 'provider',
@@ -716,7 +716,7 @@ async function runSetupFlow(
   const selectedLlm = LLM_PROVIDERS.find((p) => p.value === llmProvider) as LLMProvider;
 
   // API Key
-  const { apiKey: llmApiKey } = await inquirer.prompt([
+  const { apiKey: llmApiKey } = await safePrompt([
     {
       type: 'password',
       name: 'apiKey',
@@ -729,7 +729,7 @@ async function runSetupFlow(
   // Model
   let llmModel: string;
   if (selectedLlm.models.length > 0) {
-    const { model } = await inquirer.prompt([
+    const { model } = await safePrompt([
       {
         type: 'list',
         name: 'model',
@@ -740,7 +740,7 @@ async function runSetupFlow(
     ]);
     llmModel = model;
   } else {
-    const { model } = await inquirer.prompt([
+    const { model } = await safePrompt([
       {
         type: 'input',
         name: 'model',
@@ -755,7 +755,7 @@ async function runSetupFlow(
   // URL
   let llmUrl: string;
   if (selectedLlm.url) {
-    const { url } = await inquirer.prompt([
+    const { url } = await safePrompt([
       {
         type: 'input',
         name: 'url',
@@ -766,7 +766,7 @@ async function runSetupFlow(
     ]);
     llmUrl = url;
   } else {
-    const { url } = await inquirer.prompt([
+    const { url } = await safePrompt([
       {
         type: 'input',
         name: 'url',
@@ -825,7 +825,7 @@ async function runSetupFlow(
     return { name: label, value: p.vendor };
   });
 
-  const { vendor: ttsVendor } = await inquirer.prompt([
+  const { vendor: ttsVendor } = await safePrompt([
     {
       type: 'list',
       name: 'vendor',
@@ -838,7 +838,7 @@ async function runSetupFlow(
   const selectedTts = TTS_PROVIDERS.find((p) => p.vendor === ttsVendor)!;
 
   // API Key
-  const { key: ttsKey } = await inquirer.prompt([
+  const { key: ttsKey } = await safePrompt([
     {
       type: 'password',
       name: 'key',
@@ -852,7 +852,7 @@ async function runSetupFlow(
 
   // Microsoft-specific: region + voice name
   if (ttsVendor === 'microsoft') {
-    const msAnswers = await inquirer.prompt([
+    const msAnswers = await safePrompt([
       {
         type: 'input',
         name: 'region',
@@ -874,7 +874,7 @@ async function runSetupFlow(
 
   // MiniMax-specific: group_id
   if (selectedTts.requiresGroupId) {
-    const { groupId } = await inquirer.prompt([
+    const { groupId } = await safePrompt([
       {
         type: 'input',
         name: 'groupId',

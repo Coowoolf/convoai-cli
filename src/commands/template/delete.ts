@@ -24,8 +24,8 @@ async function deleteAction(name: string, opts: DeleteOptions): Promise<void> {
       throw new Error('Cannot confirm deletion in non-interactive mode. Use --force to skip confirmation.');
     }
 
-    const { default: inquirer } = await import('inquirer');
-    const { confirmed } = await inquirer.prompt([
+    const { safePrompt } = await import('../../ui/prompt.js');
+    const { confirmed } = await safePrompt([
       {
         type: 'confirm',
         name: 'confirmed',

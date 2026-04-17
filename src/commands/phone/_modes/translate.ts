@@ -67,7 +67,7 @@ export async function collectTranslateParams(opts: {
   to?: string;
   lang?: string;
 }): Promise<{ toNumber: string; sourceLang: string; targetLang: string }> {
-  const { default: inquirer } = await import('inquirer');
+  const { safePrompt } = await import('../../../ui/prompt.js');
   const { validateE164 } = await import('../_helpers.js');
 
   let sourceLang: string;
@@ -78,7 +78,7 @@ export async function collectTranslateParams(opts: {
     sourceLang = parsed.source;
     targetLang = parsed.target;
   } else {
-    const langAns = await inquirer.prompt([
+    const langAns = await safePrompt([
       {
         type: 'list',
         name: 'source',
@@ -98,7 +98,7 @@ export async function collectTranslateParams(opts: {
 
   let toNumber = opts.to;
   if (!toNumber) {
-    const ans = await inquirer.prompt([{
+    const ans = await safePrompt([{
       type: 'input',
       name: 'to',
       message: 'Phone number to call (E.164):',

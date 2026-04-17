@@ -9,8 +9,8 @@ import { track } from '../../utils/telemetry.js';
 // ─── Confirmation Prompt ───────────────────────────────────────────────────
 
 async function confirmStopAll(count: number): Promise<boolean> {
-  const { default: inquirer } = await import('inquirer');
-  const { confirmed } = await inquirer.prompt([
+  const { safePrompt } = await import('../../ui/prompt.js');
+  const { confirmed } = await safePrompt([
     {
       type: 'confirm',
       name: 'confirmed',

@@ -100,8 +100,8 @@ export async function pickOutboundNumber(
 
   if (outbound.length === 1) return outbound[0];
 
-  const { default: inquirer } = await import('inquirer');
-  const { selected } = await inquirer.prompt([{
+  const { safePrompt } = await import('../../ui/prompt.js');
+  const { selected } = await safePrompt([{
     type: 'list',
     name: 'selected',
     message: 'From number:',

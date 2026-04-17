@@ -46,12 +46,12 @@ export async function collectFreeParams(opts: {
   from?: string;
   task?: string;
 }): Promise<{ toNumber: string; task?: string }> {
-  const { default: inquirer } = await import('inquirer');
+  const { safePrompt } = await import('../../../ui/prompt.js');
   const { validateE164 } = await import('../_helpers.js');
 
   let toNumber = opts.to;
   if (!toNumber) {
-    const ans = await inquirer.prompt([{
+    const ans = await safePrompt([{
       type: 'input',
       name: 'to',
       message: 'Phone number to call (E.164):',
@@ -63,7 +63,7 @@ export async function collectFreeParams(opts: {
 
   let task = opts.task;
   if (task === undefined) {
-    const ans = await inquirer.prompt([{
+    const ans = await safePrompt([{
       type: 'input',
       name: 'task',
       message: 'Anything to tell the agent? (optional):',

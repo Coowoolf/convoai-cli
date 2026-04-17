@@ -40,8 +40,8 @@ async function useAction(name: string, opts: UseOptions): Promise<void> {
   let channel = opts.channel ?? template.properties.channel;
 
   if (!channel && process.stdin.isTTY) {
-    const { default: inquirer } = await import('inquirer');
-    const answers = await inquirer.prompt([
+    const { safePrompt } = await import('../../ui/prompt.js');
+    const answers = await safePrompt([
       {
         type: 'input',
         name: 'channel',

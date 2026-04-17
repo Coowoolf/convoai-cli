@@ -33,7 +33,7 @@ async function promptForMissing(opts: {
   model?: string;
 }): Promise<PromptAnswers> {
   // Dynamic import so inquirer is only loaded when needed
-  const { default: inquirer } = await import('inquirer');
+  const { safePrompt } = await import('../../ui/prompt.js');
 
   const questions: Array<{
     type: string;
@@ -75,7 +75,7 @@ async function promptForMissing(opts: {
     };
   }
 
-  const answers = await inquirer.prompt(questions);
+  const answers = await safePrompt(questions);
 
   return {
     channel: opts.channel ?? answers.channel,

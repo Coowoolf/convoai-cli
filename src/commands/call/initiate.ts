@@ -33,8 +33,8 @@ export function registerCallInitiate(program: Command): void {
 
         // If no phone flag, try interactive
         if (!toNumber && process.stdin.isTTY) {
-          const { default: inquirer } = await import('inquirer');
-          const ans = await inquirer.prompt([{
+          const { safePrompt } = await import('../../ui/prompt.js');
+          const ans = await safePrompt([{
             type: 'input', name: 'to', message: 'To number (E.164):',
             validate: (v: string) => /^\+[1-9]\d{1,14}$/.test(v.trim()) || 'Invalid E.164',
           }]);

@@ -147,8 +147,8 @@ async function clearAction(opts: {
       printError('Cannot prompt in non-TTY mode. Use --force to proceed.');
       process.exit(1);
     }
-    const { default: inquirer } = await import('inquirer');
-    const { confirm } = await inquirer.prompt([{
+    const { safePrompt } = await import('../ui/prompt.js');
+    const { confirm } = await safePrompt([{
       type: 'confirm',
       name: 'confirm',
       message: 'Are you sure?',

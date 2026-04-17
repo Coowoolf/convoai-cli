@@ -9,12 +9,12 @@ import { track } from '../../utils/telemetry.js';
 
 
 async function runInlineImport(profileName?: string): Promise<void> {
-  const { default: inquirer } = await import('inquirer');
+  const { safePrompt } = await import('../../ui/prompt.js');
   const { getNumberAPI: getNumAPI, validateE164: valE164 } = await import('./_helpers.js');
 
   console.log(chalk.yellow('\n  No phone numbers found. Let\'s import one.\n'));
 
-  const ans = await inquirer.prompt([
+  const ans = await safePrompt([
     { type: 'list', name: 'provider', message: 'Provider:', choices: ['twilio', 'byo'] },
     { type: 'input', name: 'number', message: 'Phone number (E.164):', validate: (v: string) => /^\+[1-9]\d{1,14}$/.test(v.trim()) || 'Invalid format' },
     { type: 'input', name: 'label', message: 'Label:', validate: (v: string) => v.trim().length > 0 || 'Required' },
@@ -92,8 +92,8 @@ export function registerPhoneSend(phone: Command): void {
         // 2. Resolve "to" number
         let toNumber = opts.to;
         if (!toNumber && process.stdin.isTTY) {
-          const { default: inquirer } = await import('inquirer');
-          const ans = await inquirer.prompt([{
+          const { safePrompt } = await import('../../ui/prompt.js');
+          const ans = await safePrompt([{
             type: 'input', name: 'to', message: 'To number (E.164):',
             validate: (v: string) => /^\+[1-9]\d{1,14}$/.test(v.trim()) || 'Invalid E.164 format',
           }]);
@@ -108,8 +108,8 @@ export function registerPhoneSend(phone: Command): void {
         // 3. Resolve task/prompt
         let task = opts.task;
         if (!task && process.stdin.isTTY) {
-          const { default: inquirer } = await import('inquirer');
-          const ans = await inquirer.prompt([{
+          const { safePrompt } = await import('../../ui/prompt.js');
+          const ans = await safePrompt([{
             type: 'input', name: 'task', message: 'Task/prompt:',
             validate: (v: string) => v.trim().length > 0 || 'Required',
           }]);
@@ -118,8 +118,8 @@ export function registerPhoneSend(phone: Command): void {
 
         // 4. Confirm
         if (process.stdin.isTTY && !opts.json && !opts.dryRun) {
-          const { default: inquirer } = await import('inquirer');
-          const { confirm } = await inquirer.prompt([{
+          const { safePrompt } = await import('../../ui/prompt.js');
+          const { confirm } = await safePrompt([{
             type: 'confirm', name: 'confirm',
             message: `Call ${toNumber} from ${fromNumber}?`,
             default: true,

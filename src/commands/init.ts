@@ -56,7 +56,7 @@ function generateEnv(config: Record<string, any>): string {
 // ─── Inline credential setup (runs when no config exists) ──────────────────
 
 async function runInlineSetup(): Promise<void> {
-  const { default: inquirer } = await import('inquirer');
+  const { safePrompt } = await import('../ui/prompt.js');
   let config = loadConfig();
 
   console.log('');
@@ -65,7 +65,7 @@ async function runInlineSetup(): Promise<void> {
   console.log('');
 
   // Platform
-  const { platform } = await inquirer.prompt([{
+  const { platform } = await safePrompt([{
     type: 'list',
     name: 'platform',
     message: 'Platform:',
@@ -86,7 +86,7 @@ async function runInlineSetup(): Promise<void> {
   let credentialsValid = false;
 
   while (!credentialsValid) {
-    const creds = await inquirer.prompt([
+    const creds = await safePrompt([
       {
         type: 'input', name: 'appId',
         message: `App ID ${chalk.dim(`(${consoleUrl} → ${overviewHint})`)}:`,
@@ -149,7 +149,7 @@ async function runInlineSetup(): Promise<void> {
   const llmChoices = LLM_PROVIDERS.map(p => ({ name: `${p.name}${p.note ? ' ' + chalk.dim(p.note) : ''}`, value: p.value }));
   const defaultLlm = isCN ? 'dashscope' : 'openai';
 
-  const { llmVendor } = await inquirer.prompt([{
+  const { llmVendor } = await safePrompt([{
     type: 'list', name: 'llmVendor',
     message: isCN ? 'LLM 供应商:' : 'LLM provider:',
     choices: llmChoices,
@@ -157,7 +157,7 @@ async function runInlineSetup(): Promise<void> {
   }]);
 
   const llmProvider = LLM_PROVIDERS.find(p => p.value === llmVendor);
-  const { llmApiKey } = await inquirer.prompt([{
+  const { llmApiKey } = await safePrompt([{
     type: 'password', name: 'llmApiKey',
     message: 'LLM API Key:',
     mask: '*',
@@ -166,7 +166,7 @@ async function runInlineSetup(): Promise<void> {
   const llmModels = llmProvider?.models ?? [];
   let llmModel = llmModels[0] ?? llmProvider?.defaultModel ?? '';
   if (llmModels.length > 1) {
-    const { model } = await inquirer.prompt([{
+    const { model } = await safePrompt([{
       type: 'list', name: 'model',
       message: isCN ? '模型:' : 'Model:',
       choices: llmModels,
@@ -191,7 +191,7 @@ async function runInlineSetup(): Promise<void> {
 
   const needsUrlPrompt = !llmUrl || ['custom', 'azure', 'bedrock'].includes(llmVendor);
   if (needsUrlPrompt) {
-    const { url } = await inquirer.prompt([{
+    const { url } = await safePrompt([{
       type: 'input', name: 'url',
       message: isCN ? 'LLM API URL:' : 'LLM API URL:',
       default: llmUrl || undefined,
@@ -204,7 +204,7 @@ async function runInlineSetup(): Promise<void> {
   const ttsChoices = TTS_PROVIDERS.map(p => ({ name: `${p.name}${p.note ? ' ' + chalk.dim(p.note) : ''}`, value: p.vendor }));
   const defaultTts = isCN ? 'minimax' : 'microsoft';
 
-  const { ttsVendor } = await inquirer.prompt([{
+  const { ttsVendor } = await safePrompt([{
     type: 'list', name: 'ttsVendor',
     message: isCN ? 'TTS 供应商:' : 'TTS provider:',
     choices: ttsChoices,
@@ -213,7 +213,7 @@ async function runInlineSetup(): Promise<void> {
 
   const selectedTts = TTS_PROVIDERS.find(p => p.vendor === ttsVendor);
 
-  const { ttsApiKey } = await inquirer.prompt([{
+  const { ttsApiKey } = await safePrompt([{
     type: 'password', name: 'ttsApiKey',
     message: 'TTS API Key:',
     mask: '*',
@@ -224,7 +224,7 @@ async function runInlineSetup(): Promise<void> {
 
   // Microsoft: region + voice name
   if (ttsVendor === 'microsoft') {
-    const ms = await inquirer.prompt([
+    const ms = await safePrompt([
       { type: 'input', name: 'region', message: 'Azure TTS Region:', default: 'eastus' },
       { type: 'input', name: 'voiceName', message: 'Voice Name:', default: 'en-US-AndrewMultilingualNeural' },
     ]);
@@ -234,7 +234,7 @@ async function runInlineSetup(): Promise<void> {
 
   // MiniMax: group_id
   if (selectedTts?.requiresGroupId) {
-    const { groupId } = await inquirer.prompt([{
+    const { groupId } = await safePrompt([{
       type: 'input', name: 'groupId',
       message: isCN ? 'MiniMax Group ID (minimax.chat 控制台):' : 'MiniMax Group ID (from minimax.chat):',
       validate: (v: string) => v.trim().length > 0 || 'Required',

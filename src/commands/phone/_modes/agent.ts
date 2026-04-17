@@ -41,12 +41,12 @@ export async function collectAgentParams(opts: {
   task?: string;
   taskLang?: string;
 }): Promise<{ toNumber: string; task: string; taskLang: string }> {
-  const { default: inquirer } = await import('inquirer');
+  const { safePrompt } = await import('../../../ui/prompt.js');
   const { validateE164 } = await import('../_helpers.js');
 
   let task = opts.task;
   if (!task) {
-    const ans = await inquirer.prompt([{
+    const ans = await safePrompt([{
       type: 'input',
       name: 'task',
       message: 'Describe the task:',
@@ -57,7 +57,7 @@ export async function collectAgentParams(opts: {
 
   let toNumber = opts.to;
   if (!toNumber) {
-    const ans = await inquirer.prompt([{
+    const ans = await safePrompt([{
       type: 'input',
       name: 'to',
       message: 'Phone number to call (E.164):',
@@ -69,7 +69,7 @@ export async function collectAgentParams(opts: {
 
   let taskLang = opts.taskLang;
   if (!taskLang) {
-    const ans = await inquirer.prompt([{
+    const ans = await safePrompt([{
       type: 'list',
       name: 'lang',
       message: 'Language to speak:',

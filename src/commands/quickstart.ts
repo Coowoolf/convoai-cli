@@ -157,7 +157,7 @@ async function quickstartAction(): Promise<void> {
     process.exit(0);
   });
 
-  const { default: inquirer } = await import('inquirer');
+  const { safePrompt } = await import('../ui/prompt.js');
 
   // Read version for mascot (walk up to find convoai's package.json)
   let ver = 'unknown';
@@ -188,7 +188,7 @@ async function quickstartAction(): Promise<void> {
     subtitle: welcomeStrings.subtitle,
   })) console.log(line);
 
-  const { platform } = await inquirer.prompt([
+  const { platform } = await safePrompt([
     {
       type: 'list',
       name: 'platform',
@@ -225,7 +225,7 @@ async function quickstartAction(): Promise<void> {
       const overviewHint = platform === 'cn' ? '总览 → 项目信息' : 'Overview → Project Info';
       const restHint = platform === 'cn' ? 'Developer Toolkit → RESTful API → 添加密钥 → 下载' : 'Developer Toolkit → RESTful API → Add Secret → Download';
 
-      const creds = await inquirer.prompt([
+      const creds = await safePrompt([
         {
           type: 'input',
           name: 'appId',
@@ -325,7 +325,7 @@ async function quickstartAction(): Promise<void> {
         const overviewHint = platform === 'cn' ? '总览 → 项目信息' : 'Overview → Project Info';
         const restHint = platform === 'cn' ? 'Developer Toolkit → RESTful API → 添加密钥 → 下载' : 'Developer Toolkit → RESTful API → Add Secret → Download';
 
-        const creds = await inquirer.prompt([
+        const creds = await safePrompt([
           { type: 'input', name: 'appId', message: `${str.appId}:`, default: config.app_id, validate: (v: string) => v.trim().length > 0 || 'Required' },
           { type: 'password', name: 'appCertificate', message: `${str.appCert}:`, mask: '*', default: config.app_certificate, validate: (v: string) => v.trim().length > 0 || 'Required' },
           { type: 'input', name: 'customerId', message: `${str.customerId} ${chalk.dim(`(${restHint})`)}:`, default: config.customer_id, validate: (v: string) => v.trim().length > 0 || 'Required' },
@@ -375,7 +375,7 @@ async function quickstartAction(): Promise<void> {
       return { name: label, value: p.vendor };
     });
 
-    const { vendor: asrVendor } = await inquirer.prompt([
+    const { vendor: asrVendor } = await safePrompt([
       {
         type: 'list',
         name: 'vendor',
@@ -390,7 +390,7 @@ async function quickstartAction(): Promise<void> {
     // API Key — not needed for ARES
     let asrKey: string | undefined;
     if (asrVendor !== 'ares') {
-      const { key } = await inquirer.prompt([
+      const { key } = await safePrompt([
         {
           type: 'password',
           name: 'key',
@@ -405,7 +405,7 @@ async function quickstartAction(): Promise<void> {
     // Microsoft ASR needs region
     let asrRegion: string | undefined;
     if (selectedAsr.requiresRegion) {
-      const { region } = await inquirer.prompt([
+      const { region } = await safePrompt([
         {
           type: 'input',
           name: 'region',
@@ -421,7 +421,7 @@ async function quickstartAction(): Promise<void> {
     const defaultLang = lang === 'cn' ? 'zh-CN' : 'en-US';
     const langChoices = ASR_LANGUAGES.map((l) => ({ name: l.name, value: l.value }));
 
-    const { language: asrLanguage } = await inquirer.prompt([
+    const { language: asrLanguage } = await safePrompt([
       {
         type: 'list',
         name: 'language',
@@ -475,7 +475,7 @@ async function quickstartAction(): Promise<void> {
     // Build LLM provider choices — ordered by language, names only (no descriptions)
     const llmChoices = getOrderedLlmChoices(lang);
 
-    const { provider: llmProvider } = await inquirer.prompt([
+    const { provider: llmProvider } = await safePrompt([
       {
         type: 'list',
         name: 'provider',
@@ -493,7 +493,7 @@ async function quickstartAction(): Promise<void> {
     } else {
       // API Key — allow skip (empty = skip this step)
       const skipHint = platform === 'cn' ? '留空跳过此步骤' : 'Leave empty to skip';
-      const { apiKey } = await inquirer.prompt([
+      const { apiKey } = await safePrompt([
         {
           type: 'password',
           name: 'apiKey',
@@ -520,7 +520,7 @@ async function quickstartAction(): Promise<void> {
     // Model — list if provider has models, otherwise free input
     let llmModel: string;
     if (selectedLlm.models.length > 0) {
-      const { model } = await inquirer.prompt([
+      const { model } = await safePrompt([
         {
           type: 'list',
           name: 'model',
@@ -531,7 +531,7 @@ async function quickstartAction(): Promise<void> {
       ]);
       llmModel = model;
     } else {
-      const { model } = await inquirer.prompt([
+      const { model } = await safePrompt([
         {
           type: 'input',
           name: 'model',
@@ -546,7 +546,7 @@ async function quickstartAction(): Promise<void> {
     // URL — use provider default or prompt
     let llmUrl: string;
     if (selectedLlm.url) {
-      const { url } = await inquirer.prompt([
+      const { url } = await safePrompt([
         {
           type: 'input',
           name: 'url',
@@ -557,7 +557,7 @@ async function quickstartAction(): Promise<void> {
       ]);
       llmUrl = url;
     } else {
-      const { url } = await inquirer.prompt([
+      const { url } = await safePrompt([
         {
           type: 'input',
           name: 'url',
@@ -648,7 +648,7 @@ async function quickstartAction(): Promise<void> {
       return { name: label, value: p.vendor };
     });
 
-    const { vendor: ttsVendor } = await inquirer.prompt([
+    const { vendor: ttsVendor } = await safePrompt([
       {
         type: 'list',
         name: 'vendor',
@@ -664,7 +664,7 @@ async function quickstartAction(): Promise<void> {
       ttsKey = '__embedded__';
       printSuccess(lang === 'cn' ? '使用内置 API Key' : 'Using built-in API key');
     } else {
-      const { key } = await inquirer.prompt([
+      const { key } = await safePrompt([
         {
           type: 'password',
           name: 'key',
@@ -685,7 +685,7 @@ async function quickstartAction(): Promise<void> {
 
     // Microsoft-specific: region + voice name
     if (ttsVendor === 'microsoft') {
-      const msAnswers = await inquirer.prompt([
+      const msAnswers = await safePrompt([
         {
           type: 'input',
           name: 'region',
@@ -707,7 +707,7 @@ async function quickstartAction(): Promise<void> {
 
     // MiniMax-specific: group_id
     if (selectedTts.requiresGroupId && !selectedTts.builtin) {
-      const { groupId } = await inquirer.prompt([
+      const { groupId } = await safePrompt([
         {
           type: 'input',
           name: 'groupId',
@@ -775,7 +775,7 @@ async function quickstartAction(): Promise<void> {
     modeChoices.push({ name: '🦞 OpenClaw voice mode', value: 'openclaw' });
   }
 
-  const { mode } = await inquirer.prompt([{
+  const { mode } = await safePrompt([{
     type: 'list', name: 'mode',
     message: lang === 'cn' ? '选择体验方式:' : 'How to experience?',
     choices: modeChoices,
@@ -808,7 +808,7 @@ async function quickstartAction(): Promise<void> {
 
       const picked = await pickOutboundNumber(numbers);
 
-      const { to } = await inquirer.prompt([{
+      const { to } = await safePrompt([{
         type: 'input', name: 'to',
         message: lang === 'cn' ? '拨打号码 (E.164):' : 'To number (E.164):',
         validate: (v: string) => /^\+[1-9]\d{1,14}$/.test(v.trim()) || 'Invalid E.164',

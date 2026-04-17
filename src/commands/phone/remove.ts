@@ -12,8 +12,8 @@ export function registerPhoneRemove(phone: Command): void {
     .action(async (phoneNumber, opts) => {
       try {
         if (!opts.force && process.stdin.isTTY) {
-          const { default: inquirer } = await import('inquirer');
-          const { confirm } = await inquirer.prompt([{
+          const { safePrompt } = await import('../../ui/prompt.js');
+          const { confirm } = await safePrompt([{
             type: 'confirm', name: 'confirm',
             message: `Remove ${phoneNumber}?`,
             default: false,

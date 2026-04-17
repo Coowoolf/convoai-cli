@@ -15,8 +15,8 @@ import type { CallConfig } from './_modes/free.js';
 type Mode = 'translate' | 'agent' | 'free';
 
 async function selectMode(): Promise<Mode> {
-  const { default: inquirer } = await import('inquirer');
-  const { mode } = await inquirer.prompt([{
+  const { safePrompt } = await import('../../ui/prompt.js');
+  const { mode } = await safePrompt([{
     type: 'list',
     name: 'mode',
     message: 'Choose a mode:',
@@ -37,9 +37,9 @@ async function resolveFromNumber(opts: { from?: string; profile?: string }): Pro
     let numbers = await numberApi.list();
     if (numbers.length === 0) {
       // Inline import wizard
-      const { default: inquirer } = await import('inquirer');
+      const { safePrompt } = await import('../../ui/prompt.js');
       console.log(chalk.yellow('\n  No phone numbers found. Let\'s import one.\n'));
-      const ans = await inquirer.prompt([
+      const ans = await safePrompt([
         { type: 'list', name: 'provider', message: 'Provider:', choices: ['twilio', 'byo'] },
         { type: 'input', name: 'number', message: 'Phone number (E.164):', validate: (v: string) => /^\+[1-9]\d{1,14}$/.test(v.trim()) || 'Invalid format' },
         { type: 'input', name: 'label', message: 'Label:', validate: (v: string) => v.trim().length > 0 || 'Required' },

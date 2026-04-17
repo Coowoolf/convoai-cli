@@ -53,8 +53,8 @@ const TTS_VENDORS_NEEDING_KEY = ['microsoft', 'elevenlabs', 'openai', 'minimax']
 // ─── Action ────────────────────────────────────────────────────────────────
 
 async function initAction(): Promise<void> {
-  const { default: inquirer } = await import('inquirer');
-  const answers = await inquirer.prompt<InitAnswers>([
+  const { safePrompt } = await import('../../ui/prompt.js');
+  const answers = await safePrompt<InitAnswers>([
     {
       type: 'input',
       name: 'appId',

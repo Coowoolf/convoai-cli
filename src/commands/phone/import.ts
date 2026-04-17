@@ -27,10 +27,10 @@ export function registerPhoneImport(phone: Command): void {
         let sipPassword = opts.sipPassword;
 
         if (!phoneNumber || !provider || !label || !sipAddress) {
-          const { default: inquirer } = await import('inquirer');
+          const { safePrompt } = await import('../../ui/prompt.js');
 
           if (!provider) {
-            const ans = await inquirer.prompt([{
+            const ans = await safePrompt([{
               type: 'list', name: 'provider', message: 'Provider:',
               choices: [{ name: 'Twilio', value: 'twilio' }, { name: 'BYO (Bring Your Own)', value: 'byo' }],
             }]);
@@ -38,7 +38,7 @@ export function registerPhoneImport(phone: Command): void {
           }
 
           if (!phoneNumber) {
-            const ans = await inquirer.prompt([{
+            const ans = await safePrompt([{
               type: 'input', name: 'number', message: 'Phone number (E.164):',
               validate: (v: string) => /^\+[1-9]\d{1,14}$/.test(v.trim()) || 'Invalid E.164 format',
             }]);
@@ -46,7 +46,7 @@ export function registerPhoneImport(phone: Command): void {
           }
 
           if (!label) {
-            const ans = await inquirer.prompt([{
+            const ans = await safePrompt([{
               type: 'input', name: 'label', message: 'Label:',
               validate: (v: string) => v.trim().length > 0 || 'Required',
             }]);
@@ -54,7 +54,7 @@ export function registerPhoneImport(phone: Command): void {
           }
 
           if (!sipAddress) {
-            const ans = await inquirer.prompt([
+            const ans = await safePrompt([
               { type: 'input', name: 'address', message: 'SIP address:', validate: (v: string) => v.trim().length > 0 || 'Required' },
               { type: 'list', name: 'transport', message: 'Transport:', choices: ['tls', 'tcp', 'udp'], default: 'tls' },
               { type: 'input', name: 'user', message: 'SIP username (optional):' },

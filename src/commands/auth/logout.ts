@@ -29,7 +29,7 @@ interface LogoutOptions {
 }
 
 async function logoutAction(opts: LogoutOptions): Promise<void> {
-  const { default: inquirer } = await import('inquirer');
+  const { safePrompt } = await import('../../ui/prompt.js');
   const config = loadConfig();
 
   if (opts.profile) {
@@ -40,7 +40,7 @@ async function logoutAction(opts: LogoutOptions): Promise<void> {
     }
 
     if (!opts.force) {
-      const { confirmed } = await inquirer.prompt<{ confirmed: boolean }>([
+      const { confirmed } = await safePrompt<{ confirmed: boolean }>([
         {
           type: 'confirm',
           name: 'confirmed',
@@ -70,7 +70,7 @@ async function logoutAction(opts: LogoutOptions): Promise<void> {
   } else {
     // Clear all credentials
     if (!opts.force) {
-      const { confirmed } = await inquirer.prompt<{ confirmed: boolean }>([
+      const { confirmed } = await safePrompt<{ confirmed: boolean }>([
         {
           type: 'confirm',
           name: 'confirmed',
